@@ -1,0 +1,67 @@
+/* --- GLOBÁLNÍ TEMNÝ REŽIM --- */
+body {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1e2f 100%);
+  color: #f8fafc;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* --- EFEKT MATNÉHO SKLA (Glassmorphism) --- */
+.glass-panel {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  padding: 30px;
+}
+
+/* --- VSTUPNÍ POLÍČKA --- */
+input, textarea, select {
+  background-color: #1e293b;
+  color: #fff;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+/* --- TLAČÍTKA A HOVER EFEKTY --- */
+button {
+  transition: all 0.2s ease;
+  transform: scale(1);
+}
+
+button:hover {
+  transform: translateY(-3px) scale(1.02);
+  filter: brightness(1.1);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
