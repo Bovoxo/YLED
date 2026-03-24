@@ -185,20 +185,42 @@ function ModulYoutube() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url, mode: rezim, kvalita: kvalita })
       })
+      
       const contentType = response.headers.get("content-type")
       if (contentType && contentType.includes("application/json")) {
         const data = await response.json()
         if (data.chyba) return setStatus(`❌ ${data.chyba}`)
       }
+
+      // Vytáhneme název souboru z hlavičky 'Content-Disposition'
+      let nazevSouboru = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}` // Záložní název
+      const disposition = response.headers.get('Content-Disposition')
+      
+      if (disposition) {
+        // Hledáme UTF-8 zakódovaný název (kvůli české diakritice)
+        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/)
+        if (utf8Match && utf8Match[1]) {
+          nazevSouboru = decodeURIComponent(utf8Match[1])
+        } else {
+          // Obyčejné hledání, pokud není název v UTF-8
+          const normalMatch = disposition.match(/filename="?([^";]+)"?/)
+          if (normalMatch && normalMatch[1]) {
+            nazevSouboru = normalMatch[1]
+          }
+        }
+      }
+
       const blob = await response.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
-      a.download = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}`
+      a.download = nazevSouboru // <--- TADY POUŽIJEME SPRÁVNÝ NÁZEV OD SERVERU
       a.click()
       window.URL.revokeObjectURL(downloadUrl)
       setStatus("✅ Úspěšně staženo!")
-    } catch (err) { setStatus("❌ Výpadek spojení.") }
+    } catch (err) { 
+      setStatus("❌ Výpadek spojení.") 
+    }
   }
 
   return (
