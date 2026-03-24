@@ -256,7 +256,7 @@ function App() {
 
       {/* HLAVIČKA */}
       <div style={{ textAlign: "center", marginBottom: "40px" }}>
-        <h1 style={{ fontSize: "36px", margin: "0 0 10px 0", letterSpacing: "1px" }}>🏕️ Camp Manager <span style={{ color: "#3b82f6" }}>ULTRA</span></h1>
+        <h1 style={{ fontSize: "36px", margin: "0 0 10px 0", letterSpacing: "1px" }}>🏕️ YLeventdeck <span style={{ color: "#3b82f6" }}>demo</span></h1>
         <p style={{ color: "#94a3b8", margin: 0 }}>Všechny táborové nástroje na jednom místě.</p>
       </div>
 
