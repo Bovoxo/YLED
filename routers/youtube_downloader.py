@@ -33,7 +33,7 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         # Základní nastavení (vychází z tvého původního kódu)
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-            'ffmpeg_location': os.getcwd(),  # Tady to hledá ten tvůj ffmpeg.exe
+            'ffmpeg_location': '/usr/bin/ffmpeg',
             'restrictfilenames': False,
             'windowsfilenames': True,
             'noplaylist': True,  # Stáhne jen jedno video, ne celý playlist
