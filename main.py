@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 #ZAPNUTÍ COMMAND:
 #uvicorn main:app --reload
 
-app = FastAPI(title="🏕️ Camp Manager 3000 API")
+app = FastAPI(title="🏕️ YLeventdeck API")
 
 app.include_router(random_number.router)
 app.include_router(team_splitter.router)
@@ -24,4 +24,4 @@ app.add_middleware(
 # Můžeme si tu nechat i jednoduchou úvodní stránku, abychom viděli, že server běží
 @app.get("/")
 def read_root():
-    return {"zprava": "Vítej v API pro Camp Manager 3000! Běž na /docs pro testování."}
+    return {"zprava": "Vítej v API pro YLeventdeck! Běž na /docs pro testování."}
