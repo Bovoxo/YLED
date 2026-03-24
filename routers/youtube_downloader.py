@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import yt_dlp
 import os
+from urllib.parse import quote
 
 router = APIRouter()
 
@@ -80,12 +81,14 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         background_tasks.add_task(smazat_soubor_po_odeslani, cesta_k_souboru)
 
         nazev_souboru = os.path.basename(cesta_k_souboru)
+        bezpecny_nazev = quote(nazev_souboru)
 
+        
         # Odeslání souboru prohlížeči
         return FileResponse(
             path=cesta_k_souboru,
-            filename=nazev_souboru,
-            media_type="application/octet-stream"
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{bezpecny_nazev}"}
         )
 
     except Exception as e:
