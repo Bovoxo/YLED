@@ -9,6 +9,7 @@ import lyricsgenius
 import re
 import math
 import io
+from urllib.parse import quote
 
 router = APIRouter()
 
@@ -23,6 +24,7 @@ class SearchRequest(BaseModel):
 class PPTXRequest(BaseModel):
     text_pisne: str
     max_radku: int = 4
+    nazev_souboru: str = "Píseň"
 
 # --- 1. API PRO VYHLEDÁNÍ TEXTU ---
 @router.post("/api/vyhledat-text")
@@ -88,9 +90,11 @@ def create_pptx(req: PPTXRequest):
     ppt_stream = io.BytesIO()
     prs.save(ppt_stream)
     ppt_stream.seek(0)
+    
+    bezpecny_nazev = quote(req.nazev_souboru + ".pptx")
 
     return Response(
         content=ppt_stream.read(),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": 'attachment; filename="prezentace.pptx"'}
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{bezpecny_nazev}"}
     )
