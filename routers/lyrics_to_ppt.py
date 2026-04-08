@@ -11,7 +11,7 @@ import math
 import io
 from urllib.parse import quote
 
-router = APIRouter()
+router = Router()
 
 # Tvůj původní token
 MY_GENIUS_TOKEN = "YCvV3ZCX6orJkY9A4Jl6k6dl-fS55dbQTKhQ4XUIzjSqTwKy7Cbk69qhhxrKCkWv"
@@ -27,7 +27,7 @@ class PPTXRequest(BaseModel):
     nazev_souboru: str = "Píseň"
 
 # --- 1. API PRO VYHLEDÁNÍ TEXTU ---
-@router.post("/api/vyhledat-text")
+@router.post("/vyhledat-text")
 def search_lyrics(req: SearchRequest):
     try:
         genius = lyricsgenius.Genius(MY_GENIUS_TOKEN)
@@ -47,7 +47,7 @@ def search_lyrics(req: SearchRequest):
         return {"chyba": str(e)}
 
 # --- 2. API PRO VYTVOŘENÍ PREZENTACE ---
-@router.post("/api/vytvorit-prezentaci")
+@router.post("/vytvorit-prezentaci")
 def create_pptx(req: PPTXRequest):
     blocks = req.text_pisne.split("\n\n")
     blocks = [b.strip() for b in blocks if b.strip()]
