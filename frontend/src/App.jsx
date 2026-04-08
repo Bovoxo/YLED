@@ -18,7 +18,7 @@ function ModulLosovac() {
   const losovat = async () => {
     setChyba("")
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/losovat?od=${odCisla}&do=${doCisla}`)
+      const response = await fetch(`https://yleventdeck.cloud/api/losovat?od=${odCisla}&do=${doCisla}`)
       const data = await response.json()
       if (data.chyba) { setChyba(data.chyba); setVysledek("!?") }
       else { setVysledek(data.vylosovano) }
@@ -56,7 +56,7 @@ function ModulTymy() {
   const rozdelit = async () => {
     setChyba("")
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/rozdelit-tymy", {
+      const response = await fetch("https://yleventdeck.cloud/api/rozdelit-tymy", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seznam_jmen: jmena, pocet_tymu: parseInt(pocetTymu) })
       })
@@ -117,7 +117,7 @@ function ModulPrezentace() {
   const najitText = async () => {
     setStatus("Hledám text na Genius.com... ⏳")
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/vyhledat-text", {
+      const response = await fetch("https://yleventdeck.cloud/api/vyhledat-text", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ interpret, pisen })
       })
@@ -181,7 +181,7 @@ function ModulYoutube() {
     if (!url) return setStatus("❌ Chybí odkaz!")
     setStatus("⏳ Zpracovávám (může to chvíli trvat)...")
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/stahnout-yt", {
+      const response = await fetch("https://yleventdeck.cloud/api/stahnout-yt", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url, mode: rezim, kvalita: kvalita })
       })
