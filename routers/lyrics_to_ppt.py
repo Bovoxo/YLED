@@ -11,7 +11,7 @@ import math
 import io
 from urllib.parse import quote
 
-router = Router()
+router = APIRouter()
 
 # Tvůj původní token
 MY_GENIUS_TOKEN = "YCvV3ZCX6orJkY9A4Jl6k6dl-fS55dbQTKhQ4XUIzjSqTwKy7Cbk69qhhxrKCkWv"
