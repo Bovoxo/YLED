@@ -13,7 +13,7 @@ class TeamRequest(BaseModel):
 
 
 # 2. Používáme .post místo .get
-@router.post("/api/rozdelit-tymy")
+@router.post("/rozdelit-tymy")
 def split_teams(request: TeamRequest):
     # 3. Získání jmen z textu (tvoje původní logika)
     raw_text = request.seznam_jmen
