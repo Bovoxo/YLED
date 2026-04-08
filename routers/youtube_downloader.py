@@ -24,7 +24,7 @@ def smazat_soubor_po_odeslani(cesta: str):
         print(f"Chyba při mazání souboru: {e}")
 
 
-@router.post("/api/stahnout-yt")
+@router.post("/stahnout-yt")
 def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
     # Vytvoříme si složku pro dočasné uložení (pokud ještě neexistuje)
     temp_dir = "temp_downloads"
