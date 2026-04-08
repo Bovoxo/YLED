@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 #ZAPNUTÍ COMMAND:
 #uvicorn main:app --reload
 
-app = FastAPI(title="🏕️ YLeventdeck API")
+app = FastAPI(title="🏕️ YLeventdeck API", root_path="/api")
+
 
 app.include_router(random_number.router)
 app.include_router(team_splitter.router)
