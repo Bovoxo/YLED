@@ -255,6 +255,197 @@ function ModulYoutube() {
 }
 
 // ==========================================
+// 🧩 MODUL 5: IMPOSTER GAME
+// ==========================================
+function ModulImposter() {
+  // Fáze hry: "nastaveni", "predavani", "diskuze", "odhaleni"
+  const [faze, setFaze] = useState("nastaveni")
+  
+  // Nastavení hry
+  const [pocetHracu, setPocetHracu] = useState(5)
+  const [pocetImposteru, setPocetImposteru] = useState(1)
+  const [kategorie, setKategorie] = useState("jídlo")
+  const [napoveda, setNapoveda] = useState(false)
+  const [tajnyMod, setTajnyMod] = useState(false)
+  
+  // Data ze serveru a stav předávání
+  const [hraci, setHraci] = useState([])
+  const [aktualniHracIndex, setAktualniHracIndex] = useState(0)
+  const [kartaOdhalena, setKartaOdhalena] = useState(false)
+  const [chyba, setChyba] = useState("")
+
+  const startHry = async () => {
+    setChyba("")
+    try {
+      const response = await fetch("/api/imposter-losovat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pocet_hracu: parseInt(pocetHracu),
+          pocet_imposteru: parseInt(pocetImposteru),
+          kategorie: kategorie,
+          zobrazit_napovedu: napoveda,
+          tajny_mod: tajnyMod
+        })
+      })
+      const data = await response.json()
+      if (data.chyba) {
+        setChyba(data.chyba)
+      } else {
+        setHraci(data.hraci)
+        setAktualniHracIndex(0)
+        setKartaOdhalena(false)
+        setFaze("predavani") // Přepneme hru do režimu otáčení karet
+      }
+    } catch (err) { setChyba("Výpadek spojení se serverem.") }
+  }
+
+  // Funkce pro tlačítko "Skrýt a poslat"
+  const dalsiHrac = () => {
+    setKartaOdhalena(false) // Nejprve skryjeme kartu
+    if (aktualniHracIndex + 1 < hraci.length) {
+      // Jdeme na dalšího hráče
+      setAktualniHracIndex(aktualniHracIndex + 1)
+    } else {
+      // Všichni už se podívali, jdeme na diskuzi
+      setFaze("diskuze")
+    }
+  }
+
+  // Restart celé hry
+  const novaHra = () => {
+    setHraci([])
+    setFaze("nastaveni")
+  }
+
+  return (
+    <div className="glass-panel" style={{ maxWidth: "600px", margin: "0 auto", minHeight: "400px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      
+      {/* === FÁZE 1: NASTAVENÍ === */}
+      {faze === "nastaveni" && (
+        <div style={{ animation: "fadeIn 0.3s" }}>
+          <h2 style={{ color: "#facc15", textAlign: "center", marginBottom: "20px" }}>🕵️ Imposter Game</h2>
+          
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", marginBottom: "20px" }}>
+            <div style={{ flex: "1 1 150px" }}>
+              <label style={{ color: "#94a3b8", display: "block", marginBottom: "5px" }}>Počet hráčů</label>
+              <input type="number" min="3" value={pocetHracu} onChange={(e) => setPocetHracu(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ flex: "1 1 150px" }}>
+              <label style={{ color: "#94a3b8", display: "block", marginBottom: "5px" }}>Počet impostorů</label>
+              <input type="number" min="1" value={pocetImposteru} onChange={(e) => setPocetImposteru(e.target.value)} style={{ width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ flex: "1 1 100%" }}>
+              <label style={{ color: "#94a3b8", display: "block", marginBottom: "5px" }}>Kategorie</label>
+              <select value={kategorie} onChange={(e) => setKategorie(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "10px", backgroundColor: "#1e293b", color: "#fff", border: "1px solid #334155" }}>
+                <option value="škola">Škola</option>
+                <option value="jídlo">Jídlo</option>
+                <option value="sport">Sport</option>
+                <option value="profese">Profese</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px", color: "#e2e8f0" }}>
+            <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
+              <input type="checkbox" checked={tajnyMod} onChange={(e) => setTajnyMod(e.target.checked)} />
+              <strong>Tajný mód:</strong> Impostor neví, že je impostor.
+            </label>
+            {!tajnyMod && (
+              <label style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}>
+                <input type="checkbox" checked={napoveda} onChange={(e) => setNapoveda(e.target.checked)} />
+                <strong>Nápověda:</strong> Ukázat impostorovi kategorii slova.
+              </label>
+            )}
+          </div>
+
+          <button onClick={startHry} style={{ width: "100%", padding: "15px", backgroundColor: "#facc15", color: "#000", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+            ZAHÁJIT HRU
+          </button>
+
+          {chyba && <p style={{ color: "#ef4444", fontWeight: "bold", textAlign: "center", marginTop: "15px" }}>{chyba}</p>}
+        </div>
+      )}
+
+      {/* === FÁZE 2: PŘEDÁVÁNÍ MOBILU (Otáčecí kartička) === */}
+      {faze === "predavani" && hraci.length > 0 && (
+        <div style={{ textAlign: "center", animation: "fadeIn 0.3s" }}>
+          
+          <div style={{ backgroundColor: "#111827", borderRadius: "15px", padding: "40px 20px", minHeight: "250px", display: "flex", flexDirection: "column", justifyContent: "center", border: "1px solid #1f2937", marginBottom: "20px" }}>
+            <h2 style={{ color: "#fff", fontSize: "28px", margin: "0 0 10px 0" }}>
+              Hráč {hraci[aktualniHracIndex].hrac}
+            </h2>
+
+            {!kartaOdhalena ? (
+              // SKRYTÝ STAV
+              <p style={{ color: "#6b7280", margin: 0, fontSize: "16px" }}>Podávej zařízení. Až budeš připraven, klikni.</p>
+            ) : (
+              // ODHALENÝ STAV
+              <div style={{ animation: "fadeIn 0.2s" }}>
+                <p style={{ color: "#9ca3af", margin: "10px 0" }}>Tvoje slovo/role je:</p>
+                <div style={{ fontSize: "32px", fontWeight: "900", color: "#facc15", textShadow: "0 0 10px rgba(250, 204, 21, 0.2)", margin: "10px 0" }}>
+                  {hraci[aktualniHracIndex].data.slovo}
+                </div>
+                {hraci[aktualniHracIndex].data.role === "Impostor" && (
+                  <p style={{ color: "#ef4444", fontWeight: "bold", fontSize: "14px" }}>Tip: Chovej se nenápadně 👀</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {!kartaOdhalena ? (
+             <button onClick={() => setKartaOdhalena(true)} style={{ width: "100%", padding: "18px", backgroundColor: "#22c55e", color: "white", fontSize: "18px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+               ZOBRAZIT MOJE SLOVO
+             </button>
+          ) : (
+             <button onClick={dalsiHrac} style={{ width: "100%", padding: "18px", backgroundColor: "#ef4444", color: "white", fontSize: "18px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+               SKRÝT A POSLAT DÁL
+             </button>
+          )}
+        </div>
+      )}
+
+      {/* === FÁZE 3: DISKUZE === */}
+      {faze === "diskuze" && (
+        <div style={{ textAlign: "center", animation: "fadeIn 0.5s" }}>
+          <h1 style={{ fontSize: "40px", color: "#fff", margin: "0 0 10px 0" }}>Čas na nápovědy!</h1>
+          <p style={{ color: "#9ca3af", fontSize: "18px", lineHeight: "1.5", marginBottom: "30px" }}>
+            Každý hráč postupně řekne 1 slovo, které souvisí s tajným slovem.<br/>
+            Nebuďte příliš konkrétní... Impostor vás poslouchá 👀.
+          </p>
+          
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+            <button onClick={() => setFaze("odhaleni")} style={{ flex: 1, padding: "15px", backgroundColor: "#3b82f6", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+              UKÁZAT VÝSLEDKY
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* === FÁZE 4: ODHALENÍ (Konec hry) === */}
+      {faze === "odhaleni" && (
+        <div style={{ animation: "fadeIn 0.3s" }}>
+          <h2 style={{ color: "#ef4444", textAlign: "center", marginBottom: "20px" }}>Kdo byl kdo?</h2>
+          <div style={{ backgroundColor: "rgba(0,0,0,0.2)", padding: "15px", borderRadius: "10px", marginBottom: "20px" }}>
+             {hraci.map(h => (
+               <div key={h.hrac} style={{ display: "flex", justifyContent: "space-between", padding: "10px", borderBottom: "1px solid #334155" }}>
+                 <strong style={{ color: "#fff" }}>Hráč {h.hrac}</strong>
+                 <span style={{ color: h.data.role.includes("Impostor") ? "#ef4444" : "#22c55e" }}>
+                   {h.data.role} ({h.data.slovo})
+                 </span>
+               </div>
+             ))}
+          </div>
+          <button onClick={novaHra} style={{ width: "100%", padding: "15px", backgroundColor: "#64748b", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+            HRÁT ZNOVU
+          </button>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+// ==========================================
 // 📺 HLAVNÍ APLIKACE (Zastřešuje vše)
 // ==========================================
 function App() {
