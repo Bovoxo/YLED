@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from routers import random_number
 from routers import team_splitter
 from routers import lyrics_to_ppt
-from routers import youtube_downloader  # <--- NOVÝ IMPORT
+from routers import youtube_downloader
+from routers import imposter
 from fastapi.middleware.cors import CORSMiddleware
 
 #ZAPNUTÍ COMMAND:
