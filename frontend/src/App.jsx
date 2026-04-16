@@ -341,6 +341,8 @@ function ModulImposter() {
                 <option value="jídlo">Jídlo</option>
                 <option value="sport">Sport</option>
                 <option value="profese">Profese</option>
+                <option value="zvířata">Zvířata</option>
+                <option value="tábor">Tábor</option>
               </select>
             </div>
           </div>
@@ -479,6 +481,7 @@ function App() {
         <MenuBtn id="tymy" ikona="👥" text="Týmy" barva="#22c55e" />
         <MenuBtn id="prezentace" ikona="🎤" text="Prezentace" barva="#a855f7" />
         <MenuBtn id="youtube" ikona="📹" text="YouTube" barva="#ef4444" />
+        <MenuBtn id="imposter" ikona="🕵️" text="Imposter" barva="#facc15" />
       </div>
 
       {/* ZOBRAZENÍ VYBRANÉHO MODULU */}
@@ -487,6 +490,7 @@ function App() {
         {aktivni === "tymy" && <ModulTymy />}
         {aktivni === "prezentace" && <ModulPrezentace />}
         {aktivni === "youtube" && <ModulYoutube />}
+        {aktivni === "imposter" && <ModulImposter />} {
       </div>
 
     </div>

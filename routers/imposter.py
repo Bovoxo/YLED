@@ -14,10 +14,48 @@ class ImposterRequest(BaseModel):
 
 # Jednoduchá databáze slov (můžeš si libovolně rozšířit)
 DATABAZE_SLOV = {
-    "škola": [("Učitel", "Ředitel"), ("Tabule", "Křída"), ("Přestávka", "Zvonění"), ("Písemka", "Zkouška")],
-    "jídlo": [("Pizza", "Langoš"), ("Hamburger", "Párek v rohlíku"), ("Zmrzlina", "Ledová tříšť")],
-    "sport": [("Fotbal", "Futsal"), ("Tenis", "Badminton"), ("Běh", "Chůze"), ("Plavání", "Potápění")],
-    "profese": [("Policista", "Hasič"), ("Doktor", "Zubař"), ("Programátor", "Hacker"), ("Kuchař", "Číšník")]
+"škola": [
+        ("Tělocvik", "Matematika"),      # Pohyb vs. sezení/počítání
+        ("Tabule", "Školní lavice"),     # Píše se na ni vs. sedí se v ní
+        ("Ředitelna", "Školní jídelna"), # Průšvih vs. jídlo
+        ("Písemka", "Přestávka"),        # Stres vs. odpočinek
+        ("Kružítko", "Přezůvky")         # Rýsování vs. chození
+    ],
+    "jídlo": [
+        ("Špagety", "Polévka"),          # Namotává se vs. srká se lžící
+        ("Palačinky", "Míchaná vajíčka"),# Sladké vs. slané
+        ("Jablko", "Meloun"),            # Malé/strom vs. obrovské/země
+        ("Čokoláda", "Brambůrky"),       # Sladké vs. slané/křupavé
+        ("Párek v rohlíku", "Svíčková")  # Rychlovka do ruky vs. omáčka s knedlíkem
+    ],
+    "sport": [
+        ("Lední hokej", "Krasobruslení"),# Drsné/tým vs. umělecké/jednotlivec
+        ("Šachy", "Box"),                # Ticho/mozek vs. rvačka/ring
+        ("Plavání", "Lyžování"),         # Voda/léto vs. sníh/zima
+        ("Cyklistika", "Běh"),           # Stroj/kola vs. jen nohy
+        ("Golf", "Basketbal")            # Klid/jamky vs. rychlost/koš
+    ],
+    "profese": [
+        ("Zpěvák", "Moderátor zpráv"),   # Koncert/hudba vs. televize/vážnost
+        ("Popelář", "Pošťák"),           # Odváží odpad vs. přiváží dopisy
+        ("Chirurg", "Řezník"),           # Zachraňuje lidi vs. zpracovává maso (vtipný chyták)
+        ("Automechanik", "Závodník F1"), # Opravuje vs. řídí
+        ("Kuchař", "Číšník")             # Vaří vzadu vs. roznáší vepředu
+    ],
+    "zvířata": [
+        ("Pes", "Kočka"),                # Štěká/hlídá vs. mňouká/škrábe
+        ("Slon", "Žirafa"),              # Chobot/těžký vs. krk/vysoká
+        ("Orel", "Tučňák"),              # Létá vysoko vs. plave/zima
+        ("Žralok", "Kapr"),              # Nebezpečný/moře vs. Vánoce/rybník
+        ("Hada", "Žába")                 # Plazí se vs. skáče
+    ],
+    "tábor": [
+        ("Stan", "Hlavní budova"),       # Spaní venku vs. pevná stavba
+        ("Táborák", "Stezka odvahy"),    # Oheň/zpěv vs. tma/strach
+        ("Spacák", "Batoh"),             # Leze se do něj vs. nosí se na zádech
+        ("Vedoucí", "Kuchařka"),         # Dělá program vs. dělá jídlo
+        ("Baterka", "Repelent")          # Svítí ve tmě vs. stříká se proti komárům
+    ]
 }
 
 @router.post("/api/imposter-losovat")
