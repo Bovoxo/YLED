@@ -15,7 +15,8 @@ app = FastAPI(title="🏕️ YLeventdeck API", root_path="/api")
 app.include_router(random_number.router)
 app.include_router(team_splitter.router)
 app.include_router(lyrics_to_ppt.router)
-app.include_router(youtube_downloader.router)  # <--- NOVÉ ZAPOJENÍ
+app.include_router(youtube_downloader.router)
+app.include_router(imposter.router)
 
 # TADY JE TEN NOVÝ SEZNAM ADRES:
 origins = [

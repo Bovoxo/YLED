@@ -2,3 +2,15 @@ node_modules/
 venv/
 .venv/
 __pycache__/
+# Ignorovat obří spustitelné soubory
+*.exe
+ffmpeg.exe
+ffplay.exe
+ffprobe.exe
+# Ignorovat dočasně stažená videa a audia
+temp_downloads/
+*.mp4
+*.mp3
+
+# Ignorovat Python prostředí a cache
+*.pyc
