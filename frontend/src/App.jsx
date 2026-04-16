@@ -490,7 +490,7 @@ function App() {
         {aktivni === "tymy" && <ModulTymy />}
         {aktivni === "prezentace" && <ModulPrezentace />}
         {aktivni === "youtube" && <ModulYoutube />}
-        {aktivni === "imposter" && <ModulImposter />} {
+        {aktivni === "imposter" && <ModulImposter />}
       </div>
 
     </div>
