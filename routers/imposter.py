@@ -58,7 +58,7 @@ DATABAZE_SLOV = {
     ]
 }
 
-@router.post("/api/imposter-losovat")
+@router.post("/imposter-losovat")
 def losovat_role(req: ImposterRequest):
     if req.pocet_hracu <= req.pocet_imposteru:
         return {"chyba": "Počet hráčů musí být větší než počet impostorů!"}
