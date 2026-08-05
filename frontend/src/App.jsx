@@ -448,102 +448,211 @@ function ModulImposter() {
 }
 
 // ==========================================
-// 🧩 MODUL 6: SOUNDBOARD (Web Audio)
+// 🧩 MODUL 6: SOUNDBOARD (UPGRADE)
 // ==========================================
 function ModulSoundboard() {
-  // Připravíme mřížku 3x3 (9 tlačítek)
-  const [tlacitka, setTlacitka] = useState(
-    Array(9).fill({ url: null, name: "Prázdné", color: "#1e293b" })
-  );
+  const [tlacitka, setTlacitka] = useState(() => {
+    // Vytvoříme 24 prázdných tlačítek (8x3)
+    const grid = Array(24).fill({ url: null, name: "Prázdné", color: "#334155", start: 0, end: 0, playing: false });
 
-  // Funkce pro nahrání souboru do tlačítka
+    // Defaultní zvuk ze serveru (soubor pak musíš nahrát do složky frontend/public/zvuky/horn.mp3)
+    grid[0] = {
+      url: "/zvuky/fah.mp3",
+      name: "Fah",
+      color: "#ef4444",
+      start: 0, end: 0, playing: false
+    };
+
+    return grid;
+  });
+
+  // Ref pro ukládání hrajících audio objektů a časovačů (abychom je mohli zastavit)
+  const audioRefs = React.useRef(Array(9).fill(null));
+  const timeoutRefs = React.useRef(Array(9).fill(null));
+
+  const [editIndex, setEditIndex] = useState(null); // Které tlačítko právě upravujeme
+  const paletaBarev = [
+    { nazev: "Fialová", hex: "#a855f7" },
+    { nazev: "Modrá", hex: "#3b82f6" },
+    { nazev: "Zelená", hex: "#22c55e" },
+    { nazev: "Červená", hex: "#ef4444" },
+    { nazev: "Žlutá", hex: "#eab308" },
+    { nazev: "Tmavá", hex: "#334155" }
+  ];
+
   const nahratSoubor = (index, event) => {
     const file = event.target.files[0];
     if (file) {
-      // Vytvoříme virtuální odkaz na soubor v paměti prohlížeče
       const fileUrl = URL.createObjectURL(file);
-
       const novaTlacitka = [...tlacitka];
       novaTlacitka[index] = {
+        ...novaTlacitka[index],
         url: fileUrl,
-        name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15), // Název bez koncovky (max 15 znaků)
-        color: "#a855f7" // Výchozí barva při nahrání (tvoje fialová)
+        name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15),
+        color: "#a855f7",
+        start: 0,
+        end: 0
       };
       setTlacitka(novaTlacitka);
     }
   };
 
-  // Funkce pro přehrání
-  const prehraj = (url) => {
-    if (url) {
-      const audio = new Audio(url);
-      audio.play();
+  const prehraj = (index) => {
+    const btn = tlacitka[index];
+    if (!btn.url) return;
+
+    // Pokud už hraje, nejprve ho zastavíme
+    zastav(index);
+
+    const audio = new Audio(btn.url);
+    audio.currentTime = btn.start;
+
+    // Nastavení stavu na "playing"
+    const novaTlacitka = [...tlacitka];
+    novaTlacitka[index].playing = true;
+    setTlacitka(novaTlacitka);
+
+    audio.play();
+    audioRefs.current[index] = audio;
+
+    // Když skladba přirozeně skončí
+    audio.onended = () => zastav(index);
+
+    // Pokud je nastavený ořez konce
+    if (btn.end > btn.start) {
+      const durationMs = (btn.end - btn.start) * 1000;
+      timeoutRefs.current[index] = setTimeout(() => {
+        zastav(index);
+      }, durationMs);
     }
   };
 
-  // Funkce pro zastavení všech zvuků (pokročilejší řešení by vyžadovalo sledovat hrající instance)
-  const stopAll = () => {
-    // Pro jednoduchou verzi na webu: Web Audio API by bylo lepší pro hromadné zastavení,
-    // ale jako rychlý "kill switch" můžeme nechat uživatele prostě načíst komponentu znovu,
-    // případně tohle dořešíme v dalším updatu.
-    console.log("Zatím hrajeme do konce!");
+  const zastav = (index) => {
+    if (audioRefs.current[index]) {
+      audioRefs.current[index].pause();
+      audioRefs.current[index].currentTime = 0;
+      audioRefs.current[index] = null;
+    }
+    if (timeoutRefs.current[index]) {
+      clearTimeout(timeoutRefs.current[index]);
+      timeoutRefs.current[index] = null;
+    }
+
+    setTlacitka(prev => {
+      const nova = [...prev];
+      nova[index] = { ...nova[index], playing: false };
+      return nova;
+    });
   };
 
+  const stopAll = () => {
+    tlacitka.forEach((_, index) => zastav(index));
+  };
+
+  const ulozitNastaveni = (index, newData) => {
+    const novaTlacitka = [...tlacitka];
+    novaTlacitka[index] = { ...novaTlacitka[index], ...newData };
+    setTlacitka(novaTlacitka);
+    setEditIndex(null);
+  };
+
+  // --- VYKRESLENÍ MENU PRO ÚPRAVU ---
+  if (editIndex !== null) {
+    const btn = tlacitka[editIndex];
+    return (
+      <div className="glass-panel" style={{ maxWidth: "500px", margin: "0 auto", animation: "fadeIn 0.2s" }}>
+        <h2 style={{ color: btn.color, textAlign: "center", marginBottom: "20px" }}>⚙️ Nastavení tlačítka</h2>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <div>
+            <label style={{ color: "#9ca3af", fontSize: "14px" }}>Název:</label>
+            <input type="text" defaultValue={btn.name} id="editName" style={{ width: "100%", boxSizing: "border-box" }} />
+          </div>
+
+          <div>
+            <label style={{ color: "#9ca3af", fontSize: "14px" }}>Barva:</label>
+            <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
+              {paletaBarev.map(c => (
+                <button key={c.hex} onClick={() => ulozitNastaveni(editIndex, { color: c.hex, name: document.getElementById("editName").value })}
+                  style={{ width: "40px", height: "40px", backgroundColor: c.hex, borderRadius: "50%", border: btn.color === c.hex ? "3px solid white" : "none", cursor: "pointer" }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "20px" }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Start (sekundy):</label>
+              <input type="number" min="0" defaultValue={btn.start} id="editStart" style={{ width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Konec (0 = do konce):</label>
+              <input type="number" min="0" defaultValue={btn.end} id="editEnd" style={{ width: "100%", boxSizing: "border-box" }} />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+            <button onClick={() => setEditIndex(null)} style={{ flex: 1, padding: "12px", backgroundColor: "#334155", color: "white", borderRadius: "8px", border: "none" }}>Zrušit</button>
+            <button
+              onClick={() => ulozitNastaveni(editIndex, {
+                name: document.getElementById("editName").value,
+                start: parseFloat(document.getElementById("editStart").value) || 0,
+                end: parseFloat(document.getElementById("editEnd").value) || 0
+              })}
+              style={{ flex: 2, padding: "12px", backgroundColor: "#22c55e", color: "white", borderRadius: "8px", border: "none", fontWeight: "bold" }}
+            >
+              Uložit změny
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- VYKRESLENÍ MŘÍŽKY ---
   return (
     <div className="glass-panel" style={{ maxWidth: "800px", margin: "0 auto" }}>
       <h2 style={{ color: "#a855f7", textAlign: "center", marginBottom: "20px" }}>🎛️ Soundboard</h2>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 1fr)",
-        gap: "15px",
-        marginBottom: "20px"
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: "10px", marginBottom: "20px" }}>
         {tlacitka.map((btn, index) => (
           <div key={index} style={{
-            backgroundColor: btn.url ? "rgba(168, 85, 247, 0.2)" : "rgba(0,0,0,0.2)",
+            backgroundColor: btn.playing ? `${btn.color}40` : (btn.url ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.2)"),
             border: `2px solid ${btn.url ? btn.color : "#334155"}`,
-            borderRadius: "12px",
-            padding: "15px",
-            textAlign: "center",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            minHeight: "120px"
+            borderRadius: "12px", padding: "15px", textAlign: "center",
+            display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "140px",
+            boxShadow: btn.playing ? `0 0 15px ${btn.color}80` : "none", transition: "all 0.2s"
           }}>
-            <strong style={{ color: "#fff", marginBottom: "10px", fontSize: "14px", wordWrap: "break-word" }}>
-              {btn.name}
-            </strong>
+
+            {/* Hlavička s názvem a ozubeným kolečkem */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+              <strong style={{ color: "#fff", fontSize: "14px", wordWrap: "break-word", textAlign: "left", flex: 1 }}>{btn.name}</strong>
+              {btn.url && (
+                <button onClick={() => setEditIndex(index)} style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: "0 0 0 5px" }}>⚙️</button>
+              )}
+            </div>
 
             {!btn.url ? (
-              // Tlačítko pro nahrání (skrytý input file)
-              <label style={{
-                cursor: "pointer", padding: "8px", backgroundColor: "#334155",
-                borderRadius: "8px", fontSize: "12px", color: "#9ca3af"
-              }}>
+              <label style={{ cursor: "pointer", padding: "8px", backgroundColor: "#334155", borderRadius: "8px", fontSize: "12px", color: "#9ca3af" }}>
                 📂 Vybrat MP3
-                <input
-                  type="file"
-                  accept="audio/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => nahratSoubor(index, e)}
-                />
+                <input type="file" accept="audio/*" style={{ display: "none" }} onChange={(e) => nahratSoubor(index, e)} />
               </label>
             ) : (
-              // Tlačítko pro přehrání
-              <button onClick={() => prehraj(btn.url)} style={{
-                padding: "10px", backgroundColor: btn.color, color: "#fff",
-                border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold"
-              }}>
-                ▶ PLAY
-              </button>
+              <div style={{ display: "flex", gap: "5px" }}>
+                <button onClick={() => prehraj(index)} style={{ flex: 2, padding: "10px", backgroundColor: btn.color, color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                  ▶ PLAY
+                </button>
+                <button onClick={() => zastav(index)} style={{ flex: 1, padding: "10px", backgroundColor: "#1e293b", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                  🛑
+                </button>
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      <button onClick={stopAll} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px" }}>
-        🛑 STOP ALL (WIP)
+      <button onClick={stopAll} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
+        🛑 STOP ALL
       </button>
     </div>
   );
@@ -584,7 +693,7 @@ function App() {
         <MenuBtn id="prezentace" ikona="🎤" text="Prezentace" barva="#a855f7" />
         <MenuBtn id="youtube" ikona="📹" text="YouTube" barva="#ef4444" />
         <MenuBtn id="imposter" ikona="🕵️" text="Imposter" barva="#facc15" />
-        <MenuBtn id="soundboard" ikona="🎛️" text="Soundboard" barva="#a855f7" />
+        <MenuBtn id="soundboard" ikona="🎛️" text="Soundboard" barva="#ff751f" />
       </div>
 
       {/* ZOBRAZENÍ VYBRANÉHO MODULU */}
@@ -594,9 +703,12 @@ function App() {
         {aktivni === "prezentace" && <ModulPrezentace />}
         {aktivni === "youtube" && <ModulYoutube />}
         {aktivni === "imposter" && <ModulImposter />}
-        {aktivni === "soundboard" && <ModulSoundboard />}
       </div>
 
+      {/* SOUNDBOARD: Je tu pořád, jen ho CSSkem schováme/ukážeme, aby se nevymazala paměť! */}
+      <div style={{ display: aktivni === "soundboard" ? "block" : "none", animation: "fadeIn 0.3s ease-in-out" }}>
+        <ModulSoundboard />
+      </div>
     </div>
   )
 }
