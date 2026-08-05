@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import './App.css'
 
 //ZAPNUTÍ COMMAND:
@@ -467,8 +467,8 @@ function ModulSoundboard() {
   });
 
   // Ref pro ukládání hrajících audio objektů a časovačů (abychom je mohli zastavit)
-  const audioRefs = React.useRef(Array(9).fill(null));
-  const timeoutRefs = React.useRef(Array(9).fill(null));
+  const audioRefs = useRef(Array(9).fill(null));
+  const timeoutRefs = useRef(Array(9).fill(null));
 
   const [editIndex, setEditIndex] = useState(null); // Které tlačítko právě upravujeme
   const paletaBarev = [
@@ -707,7 +707,7 @@ function App() {
 
       {/* SOUNDBOARD: Je tu pořád, jen ho CSSkem schováme/ukážeme, aby se nevymazala paměť! */}
       <div style={{ display: aktivni === "soundboard" ? "block" : "none", animation: "fadeIn 0.3s ease-in-out" }}>
-        <ModulSoundboard />
+          <ModulSoundboard />
       </div>
     </div>
   )
