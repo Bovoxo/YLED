@@ -462,6 +462,12 @@ function ModulSoundboard() {
       color: "#ef4444",
       start: 0, end: 0, playing: false
     };
+    grid[1] = {
+          url: "/zvuky/rizzt.mp3",
+          name: "Rizzt",
+          color: "#ef4444",
+          start: 0, end: 0, playing: false
+        };
 
     return grid;
   });
