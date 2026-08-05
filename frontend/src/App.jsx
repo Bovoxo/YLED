@@ -448,6 +448,108 @@ function ModulImposter() {
 }
 
 // ==========================================
+// 🧩 MODUL 6: SOUNDBOARD (Web Audio)
+// ==========================================
+function ModulSoundboard() {
+  // Připravíme mřížku 3x3 (9 tlačítek)
+  const [tlacitka, setTlacitka] = useState(
+    Array(9).fill({ url: null, name: "Prázdné", color: "#1e293b" })
+  );
+
+  // Funkce pro nahrání souboru do tlačítka
+  const nahratSoubor = (index, event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Vytvoříme virtuální odkaz na soubor v paměti prohlížeče
+      const fileUrl = URL.createObjectURL(file);
+
+      const novaTlacitka = [...tlacitka];
+      novaTlacitka[index] = {
+        url: fileUrl,
+        name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15), // Název bez koncovky (max 15 znaků)
+        color: "#a855f7" // Výchozí barva při nahrání (tvoje fialová)
+      };
+      setTlacitka(novaTlacitka);
+    }
+  };
+
+  // Funkce pro přehrání
+  const prehraj = (url) => {
+    if (url) {
+      const audio = new Audio(url);
+      audio.play();
+    }
+  };
+
+  // Funkce pro zastavení všech zvuků (pokročilejší řešení by vyžadovalo sledovat hrající instance)
+  const stopAll = () => {
+    // Pro jednoduchou verzi na webu: Web Audio API by bylo lepší pro hromadné zastavení,
+    // ale jako rychlý "kill switch" můžeme nechat uživatele prostě načíst komponentu znovu,
+    // případně tohle dořešíme v dalším updatu.
+    console.log("Zatím hrajeme do konce!");
+  };
+
+  return (
+    <div className="glass-panel" style={{ maxWidth: "800px", margin: "0 auto" }}>
+      <h2 style={{ color: "#a855f7", textAlign: "center", marginBottom: "20px" }}>🎛️ Soundboard</h2>
+
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "15px",
+        marginBottom: "20px"
+      }}>
+        {tlacitka.map((btn, index) => (
+          <div key={index} style={{
+            backgroundColor: btn.url ? "rgba(168, 85, 247, 0.2)" : "rgba(0,0,0,0.2)",
+            border: `2px solid ${btn.url ? btn.color : "#334155"}`,
+            borderRadius: "12px",
+            padding: "15px",
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            minHeight: "120px"
+          }}>
+            <strong style={{ color: "#fff", marginBottom: "10px", fontSize: "14px", wordWrap: "break-word" }}>
+              {btn.name}
+            </strong>
+
+            {!btn.url ? (
+              // Tlačítko pro nahrání (skrytý input file)
+              <label style={{
+                cursor: "pointer", padding: "8px", backgroundColor: "#334155",
+                borderRadius: "8px", fontSize: "12px", color: "#9ca3af"
+              }}>
+                📂 Vybrat MP3
+                <input
+                  type="file"
+                  accept="audio/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => nahratSoubor(index, e)}
+                />
+              </label>
+            ) : (
+              // Tlačítko pro přehrání
+              <button onClick={() => prehraj(btn.url)} style={{
+                padding: "10px", backgroundColor: btn.color, color: "#fff",
+                border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold"
+              }}>
+                ▶ PLAY
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button onClick={stopAll} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px" }}>
+        🛑 STOP ALL (WIP)
+      </button>
+    </div>
+  );
+}
+
+// ==========================================
 // 📺 HLAVNÍ APLIKACE (Zastřešuje vše)
 // ==========================================
 function App() {
@@ -482,6 +584,7 @@ function App() {
         <MenuBtn id="prezentace" ikona="🎤" text="Prezentace" barva="#a855f7" />
         <MenuBtn id="youtube" ikona="📹" text="YouTube" barva="#ef4444" />
         <MenuBtn id="imposter" ikona="🕵️" text="Imposter" barva="#facc15" />
+        <MenuBtn id="soundboard" ikona="🎛️" text="Soundboard" barva="#a855f7" />
       </div>
 
       {/* ZOBRAZENÍ VYBRANÉHO MODULU */}
@@ -491,6 +594,7 @@ function App() {
         {aktivni === "prezentace" && <ModulPrezentace />}
         {aktivni === "youtube" && <ModulYoutube />}
         {aktivni === "imposter" && <ModulImposter />}
+        {aktivni === "soundboard" && <ModulSoundboard />}
       </div>
 
     </div>
