@@ -613,6 +613,25 @@ function ModulSoundboard() {
     setEditIndex(null);
   };
 
+  const vymazatTlacitko = (index) => {
+    zastav(index); // Pro jistotu zastavíme zvuk, kdyby zrovna hrál
+    const novaTlacitka = [...tlacitka];
+
+    // Vyresetujeme tlačítko do prázdného stavu
+    novaTlacitka[index] = {
+      url: null,
+      fileBlob: null,
+      name: "Prázdné",
+      color: "#334155",
+      start: 0,
+      end: 0,
+      playing: false
+    };
+
+    setTlacitka(novaTlacitka);
+    setEditIndex(null); // Zavřeme menu
+  };
+
   // --- MENU ÚPRAVY ---
   if (editIndex !== null) {
     const btn = tlacitka[editIndex];
@@ -646,6 +665,7 @@ function ModulSoundboard() {
           </div>
           <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
             <button onClick={() => setEditIndex(null)} style={{ flex: 1, padding: "12px", backgroundColor: "#334155", color: "white", borderRadius: "8px", border: "none" }}>Zrušit</button>
+            <button onClick={() => vymazatTlacitko(editIndex)} style={{ flex: 1, padding: "12px", backgroundColor: "#ef4444", color: "white", borderRadius: "8px", border: "none", fontWeight: "bold" }}>🗑️ Smazat</button>
             <button onClick={() => ulozitNastaveni(editIndex, { name: document.getElementById("editName").value, start: parseFloat(document.getElementById("editStart").value) || 0, end: parseFloat(document.getElementById("editEnd").value) || 0 })} style={{ flex: 2, padding: "12px", backgroundColor: "#22c55e", color: "white", borderRadius: "8px", border: "none", fontWeight: "bold" }}>Uložit změny</button>
           </div>
         </div>
