@@ -511,14 +511,27 @@ function ModulSoundboard() {
   // 1. NAČTENÍ DAT PO ZAPNUTÍ WEBU
   useEffect(() => {
     localforage.getItem('soundboard_data').then((ulozenaData) => {
+      const defaultGrid = getInitialGrid(); // Načteme původní mřížku se správnými URL ze serveru
+
       if (ulozenaData) {
-        // Obnovíme dočasné URL adresy pro soubory, které jsme uložili
-        const obnovenaTlacitka = ulozenaData.map((btn, index) => {
-          // První tlačítko je pevné ze serveru, to nepřepisujeme, pokud není v datech změněno uživatelem
-          if (btn.fileBlob) {
-            return { ...btn, url: URL.createObjectURL(btn.fileBlob), playing: false };
+        const obnovenaTlacitka = defaultGrid.map((defaultBtn, index) => {
+          const savedBtn = ulozenaData[index];
+
+          // Pokud v databázi pro toto tlačítko nic není, vezmeme výchozí ze serveru
+          if (!savedBtn) return defaultBtn;
+
+          // Pokud uživatel do tohoto políčka nahrál VLASTNÍ zvuk (má fileBlob)
+          if (savedBtn.fileBlob) {
+            return { ...savedBtn, url: URL.createObjectURL(savedBtn.fileBlob), playing: false };
           }
-          return { ...btn, playing: false };
+
+          // Pokud je to ZVUK ZE SERVERU (nemá fileBlob)
+          // Převezmeme uložené barvy a názvy, ale URL adresu vrátíme zpět tu ze serveru!
+          return {
+            ...savedBtn,
+            url: defaultBtn.url, // <--- TÍMTO ZACHRÁNÍME ZTRACENOU ADRESU
+            playing: false
+          };
         });
         setTlacitka(obnovenaTlacitka);
       }
@@ -529,7 +542,8 @@ function ModulSoundboard() {
   // 2. ULOŽENÍ DAT PŘI KAŽDÉ ZMĚNĚ
   useEffect(() => {
     if (nacteno) {
-      // Před uložením vyčistíme 'url', protože Blob URL v databázi nepřežije. Ukládáme jen 'fileBlob'.
+      // Před uložením stále mažeme 'url', protože Blob URL v databázi nepřežije.
+      // U serverových zvuků to nevadí, načítací kód nahoře si je zase obnoví z výchozí šablony.
       const kUlozeni = tlacitka.map(({ url, playing, ...zbytek }) => zbytek);
       localforage.setItem('soundboard_data', kUlozeni);
     }
