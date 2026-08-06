@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import localforage from 'localforage'
 import './App.css'
 
 //ZAPNUTÍ COMMAND:
@@ -448,43 +449,91 @@ function ModulImposter() {
 }
 
 // ==========================================
-// 🧩 MODUL 6: SOUNDBOARD (UPGRADE)
+// 🧩 MODUL 6: SOUNDBOARD (UPGRADE - Pevná velikost & Databáze)
 // ==========================================
 function ModulSoundboard() {
-  const [tlacitka, setTlacitka] = useState(() => {
-    // Vytvoříme 24 prázdných tlačítek (8x3)
-    const grid = Array(24).fill({ url: null, name: "Prázdné", color: "#334155", start: 0, end: 0, playing: false });
+  const getInitialGrid = () => {
+    const grid = Array(24).fill(null).map(() => ({
+      url: null, fileBlob: null, name: "Prázdné", color: "#334155", start: 0, end: 0, playing: false
+    }));
 
-    // Defaultní zvuk ze serveru (soubor pak musíš nahrát do složky frontend/public/zvuky/horn.mp3)
-    grid[0] = {
-      url: "/zvuky/fah.mp3",
-      name: "Fah",
-      color: "#ef4444",
-      start: 0, end: 0, playing: false
-    };
-    grid[1] = {
-          url: "/zvuky/rizzt.mp3",
-          name: "Rizzt",
-          color: "#ef4444",
-          start: 0, end: 0, playing: false
+    // Seznam všech pevných zvuků ze složky public/zvuky
+    const predpripraveneZvuky = [
+      { file: "circus.mp3", name: "Cirkus", color: "#eab308" },           // Žlutá
+      { file: "crickets.mp3", name: "Cvrčci", color: "#22c55e" },         // Zelená
+      { file: "crowd_clapping.mp3", name: "Potlesk", color: "#3b82f6" },  // Modrá
+      { file: "error.mp3", name: "Error", color: "#ef4444" },             // Červená
+      { file: "fah.mp3", name: "Fah", color: "#a855f7" },                 // Fialová
+      { file: "incorrect.mp3", name: "Špatně", color: "#ef4444" },        // Červená
+      { file: "iphone_ringtone.mp3", name: "iPhone Zvonění", color: "#3b82f6" }, // Modrá
+      { file: "iphone_text.mp3", name: "iPhone SMS", color: "#3b82f6" },  // Modrá
+      { file: "love_song.mp3", name: "Love Song", color: "#ef4444" },     // Červená
+      { file: "meaw.MP3", name: "Mňau", color: "#eab308" },               // Žlutá
+      { file: "rick_roll.mp3", name: "Rick Roll", color: "#a855f7" },     // Fialová
+      { file: "rizzt.mp3", name: "Rizzt", color: "#22c55e" },             // Zelená
+      { file: "run.mp3", name: "Run!", color: "#ef4444" },                // Červená
+      { file: "sad_violin.mp3", name: "Sad Violin", color: "#3b82f6" },   // Modrá
+      { file: "titanic.mp3", name: "Titanic", color: "#3b82f6" },         // Modrá
+      { file: "wah_wah_wahwah.mp3", name: "Wah Wah...", color: "#ef4444" },// Červená
+      { file: "zvonek.mp3", name: "Zvonek", color: "#eab308" }            // Žlutá
+    ];
+
+    // Automatické naplnění mřížky
+    predpripraveneZvuky.forEach((zvuk, index) => {
+      if (index < 24) { // Pojistka, aby to nepřeteklo přes tvých 24 tlačítek
+        grid[index] = {
+          url: `/zvuky/${zvuk.file}`,
+          fileBlob: null,
+          name: zvuk.name,
+          color: zvuk.color,
+          start: 0,
+          end: 0,
+          playing: false
         };
+      }
+    });
 
     return grid;
-  });
+  };
 
-  // Ref pro ukládání hrajících audio objektů a časovačů (abychom je mohli zastavit)
-  const audioRefs = useRef(Array(9).fill(null));
-  const timeoutRefs = useRef(Array(9).fill(null));
+  const [tlacitka, setTlacitka] = useState(getInitialGrid);
+  const [nacteno, setNacteno] = useState(false); // Hlídá, jestli už se data načetla z paměti prohlížeče
 
-  const [editIndex, setEditIndex] = useState(null); // Které tlačítko právě upravujeme
+  const audioRefs = useRef(Array(24).fill(null));
+  const timeoutRefs = useRef(Array(24).fill(null));
+  const [editIndex, setEditIndex] = useState(null);
+
   const paletaBarev = [
-    { nazev: "Fialová", hex: "#a855f7" },
-    { nazev: "Modrá", hex: "#3b82f6" },
-    { nazev: "Zelená", hex: "#22c55e" },
-    { nazev: "Červená", hex: "#ef4444" },
-    { nazev: "Žlutá", hex: "#eab308" },
-    { nazev: "Tmavá", hex: "#334155" }
+    { nazev: "Fialová", hex: "#a855f7" }, { nazev: "Modrá", hex: "#3b82f6" }, { nazev: "Zelená", hex: "#22c55e" },
+    { nazev: "Červená", hex: "#ef4444" }, { nazev: "Žlutá", hex: "#eab308" }, { nazev: "Tmavá", hex: "#334155" }
   ];
+
+  // 1. NAČTENÍ DAT PO ZAPNUTÍ WEBU
+  useEffect(() => {
+    localforage.getItem('soundboard_data').then((ulozenaData) => {
+      if (ulozenaData) {
+        // Obnovíme dočasné URL adresy pro soubory, které jsme uložili
+        const obnovenaTlacitka = ulozenaData.map((btn, index) => {
+          // První tlačítko je pevné ze serveru, to nepřepisujeme, pokud není v datech změněno uživatelem
+          if (btn.fileBlob) {
+            return { ...btn, url: URL.createObjectURL(btn.fileBlob), playing: false };
+          }
+          return { ...btn, playing: false };
+        });
+        setTlacitka(obnovenaTlacitka);
+      }
+      setNacteno(true);
+    });
+  }, []);
+
+  // 2. ULOŽENÍ DAT PŘI KAŽDÉ ZMĚNĚ
+  useEffect(() => {
+    if (nacteno) {
+      // Před uložením vyčistíme 'url', protože Blob URL v databázi nepřežije. Ukládáme jen 'fileBlob'.
+      const kUlozeni = tlacitka.map(({ url, playing, ...zbytek }) => zbytek);
+      localforage.setItem('soundboard_data', kUlozeni);
+    }
+  }, [tlacitka, nacteno]);
 
   const nahratSoubor = (index, event) => {
     const file = event.target.files[0];
@@ -494,10 +543,10 @@ function ModulSoundboard() {
       novaTlacitka[index] = {
         ...novaTlacitka[index],
         url: fileUrl,
+        fileBlob: file, // Zde ukládáme samotný soubor do stavu (a následně do databáze)
         name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15),
         color: "#a855f7",
-        start: 0,
-        end: 0
+        start: 0, end: 0
       };
       setTlacitka(novaTlacitka);
     }
@@ -506,30 +555,21 @@ function ModulSoundboard() {
   const prehraj = (index) => {
     const btn = tlacitka[index];
     if (!btn.url) return;
-
-    // Pokud už hraje, nejprve ho zastavíme
     zastav(index);
 
     const audio = new Audio(btn.url);
     audio.currentTime = btn.start;
 
-    // Nastavení stavu na "playing"
     const novaTlacitka = [...tlacitka];
     novaTlacitka[index].playing = true;
     setTlacitka(novaTlacitka);
 
     audio.play();
     audioRefs.current[index] = audio;
-
-    // Když skladba přirozeně skončí
     audio.onended = () => zastav(index);
 
-    // Pokud je nastavený ořez konce
     if (btn.end > btn.start) {
-      const durationMs = (btn.end - btn.start) * 1000;
-      timeoutRefs.current[index] = setTimeout(() => {
-        zastav(index);
-      }, durationMs);
+      timeoutRefs.current[index] = setTimeout(() => zastav(index), (btn.end - btn.start) * 1000);
     }
   };
 
@@ -543,7 +583,6 @@ function ModulSoundboard() {
       clearTimeout(timeoutRefs.current[index]);
       timeoutRefs.current[index] = null;
     }
-
     setTlacitka(prev => {
       const nova = [...prev];
       nova[index] = { ...nova[index], playing: false };
@@ -551,9 +590,7 @@ function ModulSoundboard() {
     });
   };
 
-  const stopAll = () => {
-    tlacitka.forEach((_, index) => zastav(index));
-  };
+  const stopAll = () => tlacitka.forEach((_, index) => zastav(index));
 
   const ulozitNastaveni = (index, newData) => {
     const novaTlacitka = [...tlacitka];
@@ -562,19 +599,17 @@ function ModulSoundboard() {
     setEditIndex(null);
   };
 
-  // --- VYKRESLENÍ MENU PRO ÚPRAVU ---
+  // --- MENU ÚPRAVY ---
   if (editIndex !== null) {
     const btn = tlacitka[editIndex];
     return (
       <div className="glass-panel" style={{ maxWidth: "500px", margin: "0 auto", animation: "fadeIn 0.2s" }}>
         <h2 style={{ color: btn.color, textAlign: "center", marginBottom: "20px" }}>⚙️ Nastavení tlačítka</h2>
-
         <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
           <div>
             <label style={{ color: "#9ca3af", fontSize: "14px" }}>Název:</label>
             <input type="text" defaultValue={btn.name} id="editName" style={{ width: "100%", boxSizing: "border-box" }} />
           </div>
-
           <div>
             <label style={{ color: "#9ca3af", fontSize: "14px" }}>Barva:</label>
             <div style={{ display: "flex", gap: "10px", marginTop: "5px" }}>
@@ -585,52 +620,42 @@ function ModulSoundboard() {
               ))}
             </div>
           </div>
-
           <div style={{ display: "flex", gap: "20px" }}>
             <div style={{ flex: 1 }}>
-              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Start (sekundy):</label>
+              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Start (s):</label>
               <input type="number" min="0" defaultValue={btn.start} id="editStart" style={{ width: "100%", boxSizing: "border-box" }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Konec (0 = do konce):</label>
+              <label style={{ color: "#9ca3af", fontSize: "14px" }}>Konec (s):</label>
               <input type="number" min="0" defaultValue={btn.end} id="editEnd" style={{ width: "100%", boxSizing: "border-box" }} />
             </div>
           </div>
-
           <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
             <button onClick={() => setEditIndex(null)} style={{ flex: 1, padding: "12px", backgroundColor: "#334155", color: "white", borderRadius: "8px", border: "none" }}>Zrušit</button>
-            <button
-              onClick={() => ulozitNastaveni(editIndex, {
-                name: document.getElementById("editName").value,
-                start: parseFloat(document.getElementById("editStart").value) || 0,
-                end: parseFloat(document.getElementById("editEnd").value) || 0
-              })}
-              style={{ flex: 2, padding: "12px", backgroundColor: "#22c55e", color: "white", borderRadius: "8px", border: "none", fontWeight: "bold" }}
-            >
-              Uložit změny
-            </button>
+            <button onClick={() => ulozitNastaveni(editIndex, { name: document.getElementById("editName").value, start: parseFloat(document.getElementById("editStart").value) || 0, end: parseFloat(document.getElementById("editEnd").value) || 0 })} style={{ flex: 2, padding: "12px", backgroundColor: "#22c55e", color: "white", borderRadius: "8px", border: "none", fontWeight: "bold" }}>Uložit změny</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // --- VYKRESLENÍ MŘÍŽKY ---
+  // --- VYKRESLENÍ MŘÍŽKY (OPRAVA ROZLOŽENÍ) ---
   return (
-    <div className="glass-panel" style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div className="glass-panel" style={{ width: "100%", margin: "0 auto", overflowX: "auto" }}>
       <h2 style={{ color: "#a855f7", textAlign: "center", marginBottom: "20px" }}>🎛️ Soundboard</h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: "10px", marginBottom: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 140px)", gap: "12px", justifyContent: "center", minWidth: "1200px", marginBottom: "20px" }}>
         {tlacitka.map((btn, index) => (
           <div key={index} style={{
+            width: "140px",      // Pevná šířka
+            height: "150px",     // Pevná výška
+            boxSizing: "border-box", // Zabrání nafouknutí přes padding
             backgroundColor: btn.playing ? `${btn.color}40` : (btn.url ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.2)"),
             border: `2px solid ${btn.url ? btn.color : "#334155"}`,
-            borderRadius: "12px", padding: "15px", textAlign: "center",
-            display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "140px",
+            borderRadius: "12px", padding: "12px", textAlign: "center",
+            display: "flex", flexDirection: "column", justifyContent: "space-between",
             boxShadow: btn.playing ? `0 0 15px ${btn.color}80` : "none", transition: "all 0.2s"
           }}>
-
-            {/* Hlavička s názvem a ozubeným kolečkem */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
               <strong style={{ color: "#fff", fontSize: "14px", wordWrap: "break-word", textAlign: "left", flex: 1 }}>{btn.name}</strong>
               {btn.url && (
@@ -645,21 +670,14 @@ function ModulSoundboard() {
               </label>
             ) : (
               <div style={{ display: "flex", gap: "5px" }}>
-                <button onClick={() => prehraj(index)} style={{ flex: 2, padding: "10px", backgroundColor: btn.color, color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
-                  ▶ PLAY
-                </button>
-                <button onClick={() => zastav(index)} style={{ flex: 1, padding: "10px", backgroundColor: "#1e293b", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
-                  🛑
-                </button>
+                <button onClick={() => prehraj(index)} style={{ flex: 2, padding: "8px", backgroundColor: btn.color, color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>▶ PLAY</button>
+                <button onClick={() => zastav(index)} style={{ flex: 1, padding: "8px", backgroundColor: "#1e293b", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>🛑</button>
               </div>
             )}
           </div>
         ))}
       </div>
-
-      <button onClick={stopAll} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
-        🛑 STOP ALL
-      </button>
+      <button onClick={stopAll} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>🛑 STOP ALL</button>
     </div>
   );
 }
@@ -684,7 +702,7 @@ function App() {
   )
 
   return (
-    <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "40px 20px" }}>
+    <div style={{ maxWidth: "1300px", margin: "0 auto", padding: "40px 20px" }}>
 
       {/* HLAVIČKA */}
       <div style={{ textAlign: "center", marginBottom: "40px" }}>
