@@ -449,10 +449,9 @@ function ModulImposter() {
 }
 
 // ==========================================
-// 🧩 MODUL 6: SOUNDBOARD (UPGRADE - Design, Lišty & Časovače)
+// 🧩 MODUL 6: SOUNDBOARD (UPGRADE - Fix časovačů a poskakování)
 // ==========================================
 
-// Pomocná funkce pro zobrazení času
 const formatCas = (sekundy) => {
   if (isNaN(sekundy) || !isFinite(sekundy)) return "0:00";
   const m = Math.floor(sekundy / 60);
@@ -469,7 +468,6 @@ function ModulSoundboard() {
       url: null, fileBlob: null, name: "Prázdné", color: "#334155", start: 0, end: 0, playing: false
     }));
 
-    // Seznam všech pevných zvuků ze složky public/zvuky
     const predpripraveneZvuky = [
       { file: "circus.mp3", name: "Cirkus", color: "#eab308" },
       { file: "crickets.mp3", name: "Cvrčci", color: "#22c55e" },
@@ -505,6 +503,10 @@ function ModulSoundboard() {
   const [nacteno, setNacteno] = useState(false);
   const [casy, setCasy] = useState({});
 
+  // Stavy pro ukládání přesných délek všech zvuků (vyřeší problém s 0:00)
+  const zjisteneDelky = useRef({});
+  const [delkyAudii, setDelkyAudii] = useState({});
+
   const audioRefs = useRef(Array(MAX_TLACITEK).fill(null));
   const timeoutRefs = useRef(Array(MAX_TLACITEK).fill(null));
   const [editIndex, setEditIndex] = useState(null);
@@ -539,7 +541,30 @@ function ModulSoundboard() {
     }
   }, [tlacitka, nacteno]);
 
-  // 3. AKTUALIZACE ČASOVAČŮ
+  // 3. ZJISTIT DÉLKY AUDIÍ NA POZADÍ PŘI NAČTENÍ (aby nesvítilo 0:00)
+  useEffect(() => {
+    tlacitka.forEach((btn, index) => {
+      if (btn.url && !zjisteneDelky.current[index]) {
+        zjisteneDelky.current[index] = "nacitam";
+        const audio = new Audio(btn.url);
+        audio.addEventListener('loadedmetadata', () => {
+          if (audio.duration && audio.duration !== Infinity) {
+            zjisteneDelky.current[index] = audio.duration;
+            setDelkyAudii(prev => ({ ...prev, [index]: audio.duration }));
+          }
+        });
+      } else if (!btn.url && zjisteneDelky.current[index]) {
+        delete zjisteneDelky.current[index];
+        setDelkyAudii(prev => {
+          const k = { ...prev };
+          delete k[index];
+          return k;
+        });
+      }
+    });
+  }, [tlacitka]);
+
+  // 4. AKTUALIZACE ČASOVAČŮ PŘI PŘEHRÁVÁNÍ (Rychlejší interval pro plynulost)
   useEffect(() => {
     const interval = setInterval(() => {
       let zmena = false;
@@ -549,7 +574,7 @@ function ModulSoundboard() {
         if (audio && !audio.paused) {
           const btn = tlacitka[idx];
           const startCas = btn.start || 0;
-          const konecCas = btn.end > 0 ? btn.end : audio.duration || 0;
+          const konecCas = btn.end > 0 ? btn.end : (audio.duration || delkyAudii[idx] || 0);
 
           const aktualni = Math.max(0, audio.currentTime - startCas);
           const zbyva = Math.max(0, konecCas - audio.currentTime);
@@ -560,10 +585,10 @@ function ModulSoundboard() {
       });
 
       if (zmena) setCasy(noveCasy);
-    }, 200);
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [tlacitka, casy]);
+  }, [tlacitka, casy, delkyAudii]);
 
   const nahratSoubor = (index, event) => {
     const file = event.target.files[0];
@@ -694,7 +719,6 @@ function ModulSoundboard() {
         </button>
       </div>
 
-      {/* Změna kontejneru pro korektní centrování bez ohledu na velikost monitoru */}
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(8, 140px)",
@@ -707,16 +731,22 @@ function ModulSoundboard() {
           const index = stranka * 24 + localIndex;
           const zobrazenyCas = casy[index];
 
-          // Výpočet zobrazeného odpočtu, i když tlačítko stojí
-          const zbyvaCelkem = btn.end > 0 ? (btn.end - btn.start) : 0;
-          const textOdpocet = (btn.playing && zobrazenyCas) ? `-${formatCas(zobrazenyCas.zbyva)}` : `-${formatCas(zbyvaCelkem)}`;
+          // Výpočet zobrazeného odpočtu i před spuštěním díky naší nové funkci na pozadí
+          const celkovyCas = delkyAudii[index] || 0;
+          const startCas = btn.start || 0;
+          const konecCas = btn.end > 0 ? btn.end : celkovyCas;
+          const zbyvaCelkem = Math.max(0, konecCas - startCas);
+
+          const textOdpocet = (btn.playing && zobrazenyCas)
+              ? `-${formatCas(zobrazenyCas.zbyva)}`
+              : `-${formatCas(zbyvaCelkem)}`;
 
           return (
             <div key={index}
-                 onClick={() => btn.url && prehraj(index)} // Kliknutí na celou kartičku zapne přehrávání
+                 onClick={() => btn.url && prehraj(index)}
                  style={{
                    position: "relative",
-                   width: "140px", height: "140px", // Striktní rozměry
+                   width: "140px", height: "140px", // Striktní rozměry chránící proti "rozskočení"
                    boxSizing: "border-box",
                    backgroundColor: btn.playing ? `${btn.color}40` : (btn.url ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.2)"),
                    border: `2px solid ${btn.url ? btn.color : "#334155"}`,
@@ -726,10 +756,9 @@ function ModulSoundboard() {
                    boxShadow: btn.playing ? `0 0 15px ${btn.color}80` : "none",
                    transition: "all 0.2s",
                    cursor: btn.url ? "pointer" : "default",
-                   overflow: "hidden" // Nesmí nic přesahovat, chrání design
+                   overflow: "hidden"
                  }}>
 
-              {/* Tlačítko nastavení fixně vpravo nahoře */}
               {btn.url && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setEditIndex(index); }}
@@ -738,18 +767,18 @@ function ModulSoundboard() {
                 </button>
               )}
 
-              {/* Horní řádek s fixními časovači */}
-              <div style={{ height: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 10px 0 10px", fontSize: "11px", fontWeight: "bold" }}>
+              {/* Tady je tabulkové zarovnání časovačů, které zabrání jakémukoliv posouvání čísílek */}
+              <div style={{ height: "25px", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 10px 0 10px", fontSize: "11px", fontWeight: "bold", fontVariantNumeric: "tabular-nums" }}>
                 {btn.url && (
                   <>
-                    <span style={{ color: "#fff" }}>{formatCas(btn.start)}</span>
-                    <span style={{ color: "#ef4444", marginRight: "20px" }}>{textOdpocet}</span>
+                    <span style={{ color: "#fff", width: "35px", textAlign: "left" }}>{formatCas(btn.start)}</span>
+                    <span style={{ color: "#ef4444", width: "45px", textAlign: "right", marginRight: "18px" }}>{textOdpocet}</span>
                   </>
                 )}
               </div>
 
-              {/* Střední oblast s vycentrovaným textem a ochranou proti přetečení */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 10px" }}>
+              {/* Střední text, který se bez ohledu na délku ustřihne po třech řádcích a nevytlačí STOP lištu */}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 10px", overflow: "hidden" }}>
                 {!btn.url ? (
                   <label onClick={(e) => e.stopPropagation()} style={{ cursor: "pointer", padding: "8px", backgroundColor: "#334155", borderRadius: "8px", fontSize: "12px", color: "#9ca3af" }}>
                     📂 Vybrat MP3
@@ -765,12 +794,12 @@ function ModulSoundboard() {
                 )}
               </div>
 
-              {/* Spodní úzká STOP lišta */}
+              {/* Zafixovaná spodní lišta */}
               {btn.url && (
                 <button
                   onClick={(e) => { e.stopPropagation(); zastav(index); }}
                   style={{
-                    width: "100%", height: "26px",
+                    width: "100%", height: "26px", flexShrink: 0,
                     backgroundColor: btn.playing ? "#ef4444" : "#1a1520",
                     color: btn.playing ? "#ffffff" : "#ef4444",
                     border: "none", borderTop: "1px solid #281c24",
