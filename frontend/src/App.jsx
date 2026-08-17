@@ -709,13 +709,13 @@ function ModulSoundboard() {
         <button
           onClick={() => setStranka(Math.max(0, stranka - 1))} disabled={stranka === 0}
           style={{ padding: "10px 20px", backgroundColor: stranka === 0 ? "#1e293b" : "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: stranka === 0 ? "not-allowed" : "pointer" }}>
-          ⬅️ Předchozí
+          Předchozí
         </button>
         <span style={{ color: "#fff", fontWeight: "bold", fontSize: "16px" }}>Stránka {stranka + 1} / 3</span>
         <button
           onClick={() => setStranka(Math.min(2, stranka + 1))} disabled={stranka === 2}
           style={{ padding: "10px 20px", backgroundColor: stranka === 2 ? "#1e293b" : "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: stranka === 2 ? "not-allowed" : "pointer" }}>
-          Další ➡️
+          Další
         </button>
       </div>
 
