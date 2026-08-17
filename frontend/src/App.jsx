@@ -449,7 +449,7 @@ function ModulImposter() {
 }
 
 // ==========================================
-// 🧩 MODUL 6: SOUNDBOARD (UPGRADE - Stránky & Časovače)
+// 🧩 MODUL 6: SOUNDBOARD (UPGRADE - Design, Lišty & Časovače)
 // ==========================================
 
 // Pomocná funkce pro zobrazení času
@@ -461,8 +461,8 @@ const formatCas = (sekundy) => {
 };
 
 function ModulSoundboard() {
-  const [stranka, setStranka] = useState(0); // 0 = první, 1 = druhá, 2 = třetí stránka
-  const MAX_TLACITEK = 72; // 3 stránky po 24 tlačítkách
+  const [stranka, setStranka] = useState(0);
+  const MAX_TLACITEK = 72;
 
   const getInitialGrid = () => {
     const grid = Array(MAX_TLACITEK).fill(null).map(() => ({
@@ -490,17 +490,10 @@ function ModulSoundboard() {
       { file: "zvonek.mp3", name: "Zvonek", color: "#eab308" }
     ];
 
-    // Automatické naplnění první stránky
     predpripraveneZvuky.forEach((zvuk, index) => {
       if (index < MAX_TLACITEK) {
         grid[index] = {
-          url: `/zvuky/${zvuk.file}`,
-          fileBlob: null,
-          name: zvuk.name,
-          color: zvuk.color,
-          start: 0,
-          end: 0,
-          playing: false
+          url: `/zvuky/${zvuk.file}`, fileBlob: null, name: zvuk.name, color: zvuk.color, start: 0, end: 0, playing: false
         };
       }
     });
@@ -510,7 +503,7 @@ function ModulSoundboard() {
 
   const [tlacitka, setTlacitka] = useState(getInitialGrid);
   const [nacteno, setNacteno] = useState(false);
-  const [casy, setCasy] = useState({}); // Udržuje aktuální časy přehrávaných audii
+  const [casy, setCasy] = useState({});
 
   const audioRefs = useRef(Array(MAX_TLACITEK).fill(null));
   const timeoutRefs = useRef(Array(MAX_TLACITEK).fill(null));
@@ -529,10 +522,7 @@ function ModulSoundboard() {
         const obnovenaTlacitka = defaultGrid.map((defaultBtn, index) => {
           const savedBtn = ulozenaData[index];
           if (!savedBtn) return defaultBtn;
-
-          if (savedBtn.fileBlob) {
-            return { ...savedBtn, url: URL.createObjectURL(savedBtn.fileBlob), playing: false };
-          }
+          if (savedBtn.fileBlob) return { ...savedBtn, url: URL.createObjectURL(savedBtn.fileBlob), playing: false };
           return { ...savedBtn, url: defaultBtn.url, playing: false };
         });
         setTlacitka(obnovenaTlacitka);
@@ -541,7 +531,7 @@ function ModulSoundboard() {
     });
   }, []);
 
-  // 2. ULOŽENÍ DAT PŘI KAŽDÉ ZMĚNĚ
+  // 2. ULOŽENÍ DAT PŘI ZMĚNĚ
   useEffect(() => {
     if (nacteno) {
       const kUlozeni = tlacitka.map(({ url, playing, ...zbytek }) => zbytek);
@@ -570,7 +560,7 @@ function ModulSoundboard() {
       });
 
       if (zmena) setCasy(noveCasy);
-    }, 200); // Kontrola času 5x za sekundu
+    }, 200);
 
     return () => clearInterval(interval);
   }, [tlacitka, casy]);
@@ -581,10 +571,7 @@ function ModulSoundboard() {
       const fileUrl = URL.createObjectURL(file);
       const novaTlacitka = [...tlacitka];
       novaTlacitka[index] = {
-        ...novaTlacitka[index],
-        url: fileUrl, fileBlob: file,
-        name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15),
-        color: "#a855f7", start: 0, end: 0
+        ...novaTlacitka[index], url: fileUrl, fileBlob: file, name: file.name.replace(/\.[^/.]+$/, "").substring(0, 15), color: "#a855f7", start: 0, end: 0
       };
       setTlacitka(novaTlacitka);
     }
@@ -693,67 +680,104 @@ function ModulSoundboard() {
     <div className="glass-panel" style={{ width: "100%", margin: "0 auto", overflowX: "auto" }}>
       <h2 style={{ color: "#a855f7", textAlign: "center", marginBottom: "20px" }}>🎛️ Soundboard</h2>
 
-      {/* Navigace stránek */}
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "20px", marginBottom: "20px" }}>
         <button
-          onClick={() => setStranka(Math.max(0, stranka - 1))}
-          disabled={stranka === 0}
+          onClick={() => setStranka(Math.max(0, stranka - 1))} disabled={stranka === 0}
           style={{ padding: "10px 20px", backgroundColor: stranka === 0 ? "#1e293b" : "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: stranka === 0 ? "not-allowed" : "pointer" }}>
           ⬅️ Předchozí
         </button>
-
         <span style={{ color: "#fff", fontWeight: "bold", fontSize: "16px" }}>Stránka {stranka + 1} / 3</span>
-
         <button
-          onClick={() => setStranka(Math.min(2, stranka + 1))}
-          disabled={stranka === 2}
+          onClick={() => setStranka(Math.min(2, stranka + 1))} disabled={stranka === 2}
           style={{ padding: "10px 20px", backgroundColor: stranka === 2 ? "#1e293b" : "#3b82f6", color: "white", border: "none", borderRadius: "8px", cursor: stranka === 2 ? "not-allowed" : "pointer" }}>
           Další ➡️
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 140px)", gap: "12px", justifyContent: "center", minWidth: "1200px", marginBottom: "20px" }}>
-        {/* Renderujeme jen tlačítka z aktuální stránky (výřez z celého pole tlacitka) */}
+      {/* Změna kontejneru pro korektní centrování bez ohledu na velikost monitoru */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(8, 140px)",
+        gap: "12px",
+        justifyContent: "center",
+        margin: "0 auto",
+        paddingBottom: "20px"
+      }}>
         {tlacitka.slice(stranka * 24, (stranka + 1) * 24).map((btn, localIndex) => {
-          const index = stranka * 24 + localIndex; // Skutečný index v hlavním poli 0 až 71
+          const index = stranka * 24 + localIndex;
           const zobrazenyCas = casy[index];
 
-          return (
-            <div key={index} style={{
-              width: "140px", height: "155px", boxSizing: "border-box",
-              backgroundColor: btn.playing ? `${btn.color}40` : (btn.url ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.2)"),
-              border: `2px solid ${btn.url ? btn.color : "#334155"}`,
-              borderRadius: "12px", padding: "12px", textAlign: "center",
-              display: "flex", flexDirection: "column", justifyContent: "space-between",
-              boxShadow: btn.playing ? `0 0 15px ${btn.color}80` : "none", transition: "all 0.2s"
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px" }}>
-                <strong style={{ color: "#fff", fontSize: "14px", wordWrap: "break-word", textAlign: "left", flex: 1 }}>{btn.name}</strong>
-                {btn.url && (
-                  <button onClick={() => setEditIndex(index)} style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: "0 0 0 5px" }}>⚙️</button>
-                )}
-              </div>
+          // Výpočet zobrazeného odpočtu, i když tlačítko stojí
+          const zbyvaCelkem = btn.end > 0 ? (btn.end - btn.start) : 0;
+          const textOdpocet = (btn.playing && zobrazenyCas) ? `-${formatCas(zobrazenyCas.zbyva)}` : `-${formatCas(zbyvaCelkem)}`;
 
-              {/* Ukazatel času (zobrazí se pouze, když tlačítko hraje) */}
-              <div style={{ height: "15px", display: "flex", justifyContent: "space-between", color: "#cbd5e1", fontSize: "11px", fontWeight: "bold" }}>
-                {btn.playing && zobrazenyCas && (
+          return (
+            <div key={index}
+                 onClick={() => btn.url && prehraj(index)} // Kliknutí na celou kartičku zapne přehrávání
+                 style={{
+                   position: "relative",
+                   width: "140px", height: "140px", // Striktní rozměry
+                   boxSizing: "border-box",
+                   backgroundColor: btn.playing ? `${btn.color}40` : (btn.url ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.2)"),
+                   border: `2px solid ${btn.url ? btn.color : "#334155"}`,
+                   borderRadius: "12px",
+                   textAlign: "center",
+                   display: "flex", flexDirection: "column",
+                   boxShadow: btn.playing ? `0 0 15px ${btn.color}80` : "none",
+                   transition: "all 0.2s",
+                   cursor: btn.url ? "pointer" : "default",
+                   overflow: "hidden" // Nesmí nic přesahovat, chrání design
+                 }}>
+
+              {/* Tlačítko nastavení fixně vpravo nahoře */}
+              {btn.url && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditIndex(index); }}
+                  style={{ position: "absolute", top: "25px", right: "2px", background: "none", border: "none", color: "#9ca3af", cursor: "pointer", padding: "5px" }}>
+                  ⚙️
+                </button>
+              )}
+
+              {/* Horní řádek s fixními časovači */}
+              <div style={{ height: "25px", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 10px 0 10px", fontSize: "11px", fontWeight: "bold" }}>
+                {btn.url && (
                   <>
-                    <span style={{ color: btn.color }}>{formatCas(zobrazenyCas.aktualni)}</span>
-                    <span style={{ color: "#ef4444" }}>-{formatCas(zobrazenyCas.zbyva)}</span>
+                    <span style={{ color: "#fff" }}>{formatCas(btn.start)}</span>
+                    <span style={{ color: "#ef4444", marginRight: "20px" }}>{textOdpocet}</span>
                   </>
                 )}
               </div>
 
-              {!btn.url ? (
-                <label style={{ cursor: "pointer", padding: "8px", backgroundColor: "#334155", borderRadius: "8px", fontSize: "12px", color: "#9ca3af", marginTop: "auto" }}>
-                  📂 Vybrat MP3
-                  <input type="file" accept="audio/*" style={{ display: "none" }} onChange={(e) => nahratSoubor(index, e)} />
-                </label>
-              ) : (
-                <div style={{ display: "flex", gap: "5px", marginTop: "auto" }}>
-                  <button onClick={() => prehraj(index)} style={{ flex: 2, padding: "8px", backgroundColor: btn.color, color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", fontSize: "12px" }}>▶ PLAY</button>
-                  <button onClick={() => zastav(index)} style={{ flex: 1, padding: "8px", backgroundColor: "#1e293b", color: "#ef4444", border: "1px solid #ef4444", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>🛑</button>
-                </div>
+              {/* Střední oblast s vycentrovaným textem a ochranou proti přetečení */}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 10px" }}>
+                {!btn.url ? (
+                  <label onClick={(e) => e.stopPropagation()} style={{ cursor: "pointer", padding: "8px", backgroundColor: "#334155", borderRadius: "8px", fontSize: "12px", color: "#9ca3af" }}>
+                    📂 Vybrat MP3
+                    <input type="file" accept="audio/*" style={{ display: "none" }} onChange={(e) => nahratSoubor(index, e)} />
+                  </label>
+                ) : (
+                  <strong style={{
+                    color: "#fff", fontSize: "14px", textAlign: "center",
+                    display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word"
+                  }}>
+                    {btn.name}
+                  </strong>
+                )}
+              </div>
+
+              {/* Spodní úzká STOP lišta */}
+              {btn.url && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); zastav(index); }}
+                  style={{
+                    width: "100%", height: "26px",
+                    backgroundColor: btn.playing ? "#ef4444" : "#1a1520",
+                    color: btn.playing ? "#ffffff" : "#ef4444",
+                    border: "none", borderTop: "1px solid #281c24",
+                    cursor: "pointer", fontWeight: "bold", fontSize: "11px"
+                  }}>
+                  STOP
+                </button>
               )}
             </div>
           );
