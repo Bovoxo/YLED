@@ -31,13 +31,23 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
     os.makedirs(temp_dir, exist_ok=True)
 
     try:
-        # Základní nastavení (vychází z tvého původního kódu)
+        # Základní nastavení s ochranou proti 403 Forbidden
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-            'ffmpeg_location': '/usr/bin/ffmpeg',
+            'ffmpeg_location': '/usr/bin/ffmpeg',  # Pokud jsi na Windows, možná tu budeš muset mít např. 'ffmpeg.exe'
             'restrictfilenames': False,
             'windowsfilenames': True,
-            'noplaylist': True,  # Stáhne jen jedno video, ne celý playlist
+            'noplaylist': True,
+            # Tímto říkáme yt-dlp, aby se tvářil jako Android, což často obchází blokace
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web']
+                }
+            },
+            # Přidání běžné hlavičky prohlížeče
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
         }
 
         if req.mode == "audio":
