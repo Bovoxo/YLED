@@ -7,40 +7,37 @@ from urllib.parse import quote
 
 router = APIRouter()
 
+
+# Šablona pro to, co pošleme z webu
 class DownloadRequest(BaseModel):
     url: str
-    mode: str
+    mode: str  # "video" nebo "audio"
     kvalita: str = "1080"  # Očekává "nejnizsi", "1080", "max"
 
+
 def smazat_soubor_po_odeslani(cesta: str):
+    """Tato funkce se spustí potichu na pozadí a smaže soubor, aby neucpal server."""
     try:
         if os.path.exists(cesta):
             os.remove(cesta)
     except Exception as e:
         print(f"Chyba při mazání souboru: {e}")
 
+
 @router.post("/stahnout-yt")
 def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
+    # Vytvoříme si složku pro dočasné uložení (pokud ještě neexistuje)
     temp_dir = "temp_downloads"
     os.makedirs(temp_dir, exist_ok=True)
 
     try:
-        # Absolutní cesta k FFmpeg v hlavní složce
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ffmpeg_cesta = os.path.join(BASE_DIR, "ffmpeg.exe")
-
-        if not os.path.exists(ffmpeg_cesta):
-            return {"chyba": f"Kritická chyba: FFmpeg nebyl nalezen na cestě: {ffmpeg_cesta}. Zkontroluj složku."}
-
-        # Základní nastavení ZCELA BEZ MASKOVÁNÍ
+        # Základní nastavení (vychází z tvého původního kódu)
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-            'ffmpeg_location': ffmpeg_cesta,
+            'ffmpeg_location': '/usr/bin/ffmpeg',
             'restrictfilenames': False,
             'windowsfilenames': True,
-            'noplaylist': True,
-            # Odstraněny parametry extractor_args a http_headers.
-            # Necháváme yt-dlp použít vlastní integrované mechanismy.
+            'noplaylist': True,  # Stáhne jen jedno video, ne celý playlist
         }
 
         if req.mode == "audio":
@@ -52,7 +49,8 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                     'preferredquality': '320',
                 }],
             })
-        else:
+        else:  # režim videa
+            # ZDE JE PŘIDANÁ LOGIKA PRO 3 TLAČÍTKA Z FRONTENDU
             if req.kvalita == "max":
                 format_str = 'bestvideo+bestaudio/best'
             elif req.kvalita == "nejnizsi":
@@ -71,6 +69,7 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         # Samotné stahování
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(req.url, download=True)
+            # yt-dlp změní koncovku (na mp4/mp3) až po stažení, takhle najdeme finální název
             cesta_k_souboru = ydl.prepare_filename(info_dict)
 
             if req.mode == "audio":
@@ -79,12 +78,15 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                 cesta_k_souboru = cesta_k_souboru.rsplit('.', 1)[0] + '.mp4'
 
         if not os.path.exists(cesta_k_souboru):
-            return {"chyba": "Soubor se nestáhl nebo se spojení audia s videem nezdařilo."}
+            return {"chyba": "Konverze se nezdařila. Máš ve složce ffmpeg.exe?"}
 
-        # Smazání souboru po odeslání
+        # Nařídíme serveru, aby soubor smazal ihned poté, co ho uživateli odešle
         background_tasks.add_task(smazat_soubor_po_odeslani, cesta_k_souboru)
-        bezpecny_nazev = quote(os.path.basename(cesta_k_souboru))
 
+        nazev_souboru = os.path.basename(cesta_k_souboru)
+        bezpecny_nazev = quote(nazev_souboru)
+
+        # Odeslání souboru prohlížeči
         return FileResponse(
             path=cesta_k_souboru,
             media_type="application/octet-stream",
@@ -92,10 +94,4 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         )
 
     except Exception as e:
-        chybova_zprava = str(e)
-        # Rozšířený záchyt specifických chyb
-        if "The page needs to be reloaded" in chybova_zprava or "Sign in to confirm" in chybova_zprava:
-            return {"chyba": "YouTube zablokoval požadavek (Ochrana proti botům). Je nutné aktualizovat yt-dlp na serveru."}
-        elif "DRM protected" in chybova_zprava:
-            return {"chyba": "Toto video má od YouTube uzamčenou (DRM) kvalitu. Zkus přepnout na 360p, nebo stáhnout jen Audio."}
-        return {"chyba": chybova_zprava}
+        return {"chyba": str(e)}
