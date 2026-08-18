@@ -11,11 +11,10 @@ router = APIRouter()
 class DownloadRequest(BaseModel):
     url: str
     mode: str
-    kvalita: str = "1080"  # Bude přijímat "nejnizsi", "1080", nebo "max"
+    kvalita: str = "1080"  # Očekává "nejnizsi", "1080", "max"
 
 
 def smazat_soubor_po_odeslani(cesta: str):
-    """Tato funkce se spustí potichu na pozadí a smaže soubor, aby neucpal server."""
     try:
         if os.path.exists(cesta):
             os.remove(cesta)
@@ -29,10 +28,17 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
     os.makedirs(temp_dir, exist_ok=True)
 
     try:
-        # Vynutíme absolutní cestu k FFmpeg, aby ho yt-dlp stoprocentně našel
-        ffmpeg_cesta = os.path.abspath("ffmpeg.exe")
+        # 1. NEJBEZPEČNĚJŠÍ CESTA K FFMPEG
+        # Tento kód zjistí, kde je tento soubor (ve složce routers), skočí o patro výš
+        # do hlavní složky a tam ukáže přesně na ffmpeg.exe
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ffmpeg_cesta = os.path.join(BASE_DIR, "ffmpeg.exe")
 
-        # Základní nastavení
+        # Okamžitá kontrola - pokud ffmpeg.exe chybí nebo je cesta špatná, vyhodíme chybu na web!
+        if not os.path.exists(ffmpeg_cesta):
+            return {"chyba": f"Kritická chyba: FFmpeg nebyl nalezen na cestě: {ffmpeg_cesta}. Zkontroluj složku."}
+
+        # 2. Základní nastavení
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
             'ffmpeg_location': ffmpeg_cesta,
@@ -41,11 +47,12 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
             'noplaylist': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'web']
+                    # Kombinace pro nejlepší kvalitu a obcházení limitů bez spouštění DRM blokací
+                    'player_client': ['tv', 'web']
                 }
             },
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
         }
 
@@ -59,7 +66,8 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                 }],
             })
         else:
-            # LOGIKA PRO 3 TLAČÍTKA KVALITY
+            # 3. TVRDÉ VYNUCENÍ KVALITY
+            # Zde definujeme striktní formáty bez kompromisů a povolíme fúzi v mp4
             if req.kvalita == "max":
                 format_str = 'bestvideo+bestaudio/best'
             elif req.kvalita == "nejnizsi":
@@ -86,13 +94,11 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                 cesta_k_souboru = cesta_k_souboru.rsplit('.', 1)[0] + '.mp4'
 
         if not os.path.exists(cesta_k_souboru):
-            return {"chyba": "Konverze se nezdařila. Máš ve složce ffmpeg.exe?"}
+            return {"chyba": "Soubor se nestáhl nebo se spojení audia s videem nezdařilo."}
 
         # Smazání souboru po odeslání
         background_tasks.add_task(smazat_soubor_po_odeslani, cesta_k_souboru)
-
-        nazev_souboru = os.path.basename(cesta_k_souboru)
-        bezpecny_nazev = quote(nazev_souboru)
+        bezpecny_nazev = quote(os.path.basename(cesta_k_souboru))
 
         return FileResponse(
             path=cesta_k_souboru,
@@ -101,4 +107,8 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         )
 
     except Exception as e:
-        return {"chyba": str(e)}
+        chybova_zprava = str(e)
+        if "DRM protected" in chybova_zprava:
+            return {
+                "chyba": "Toto video má od YouTube uzamčenou (DRM) kvalitu. Zkus přepnout na 360p, nebo stáhnout jen Audio."}
+        return {"chyba": chybova_zprava}
