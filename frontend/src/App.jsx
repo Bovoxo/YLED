@@ -179,47 +179,96 @@ function ModulYoutube() {
   const [status, setStatus] = useState("Připraveno")
 
   const stahnout = async () => {
-    if (!url) return setStatus("❌ Chybí odkaz!")
-    setStatus("⏳ Zpracovávám (může to chvíli trvat)...")
-    try {
-      const response = await fetch("/api/stahnout-yt", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url, mode: rezim, kvalita: kvalita })
-      })
+  if (!url.trim()) {
+    return setStatus("❌ Chybí odkaz!")
+  }
 
-      const contentType = response.headers.get("content-type")
-      if (contentType && contentType.includes("application/json")) {
+  setStatus("⏳ Zpracovávám (může to chvíli trvat)...")
+
+  try {
+    const response = await fetch("/api/stahnout-yt", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        url: url.trim(),
+        mode: rezim,
+        kvalita: kvalita
+      })
+    })
+
+    // Nejdřív kontrolujeme HTTP status
+    if (!response.ok) {
+      let chyba = `Server vrátil chybu ${response.status}`
+
+      try {
         const data = await response.json()
-        if (data.chyba) return setStatus(`❌ ${data.chyba}`)
+
+        if (data.detail) {
+          chyba = data.detail
+        } else if (data.chyba) {
+          chyba = data.chyba
+        }
+      } catch {
+        // Server neposlal JSON
       }
 
-      let nazevSouboru = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}`
-      const disposition = response.headers.get('Content-Disposition')
+      throw new Error(chyba)
+    }
 
-      if (disposition) {
-        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/)
-        if (utf8Match && utf8Match[1]) {
-          nazevSouboru = decodeURIComponent(utf8Match[1])
-        } else {
-          const normalMatch = disposition.match(/filename="?([^";]+)"?/)
-          if (normalMatch && normalMatch[1]) {
-            nazevSouboru = normalMatch[1]
-          }
+    // Získáme název souboru
+    let nazevSouboru =
+      `stazeno_z_youtube${rezim === "video" ? ".mkv" : ".mp3"}`
+
+    const disposition =
+      response.headers.get("Content-Disposition")
+
+    if (disposition) {
+      const utf8Match =
+        disposition.match(/filename\*=UTF-8''([^;]+)/)
+
+      if (utf8Match && utf8Match[1]) {
+        nazevSouboru =
+          decodeURIComponent(utf8Match[1])
+      } else {
+        const normalMatch =
+          disposition.match(/filename="?([^";]+)"?/)
+
+        if (normalMatch && normalMatch[1]) {
+          nazevSouboru = normalMatch[1]
         }
       }
-
-      const blob = await response.blob()
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = downloadUrl
-      a.download = nazevSouboru
-      a.click()
-      window.URL.revokeObjectURL(downloadUrl)
-      setStatus("✅ Úspěšně staženo!")
-    } catch (err) {
-      setStatus("❌ Výpadek spojení.")
     }
+
+    setStatus("⏳ Připravuji soubor...")
+
+    const blob = await response.blob()
+
+    const downloadUrl =
+      window.URL.createObjectURL(blob)
+
+    const a = document.createElement("a")
+
+    a.href = downloadUrl
+    a.download = nazevSouboru
+
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+
+    window.URL.revokeObjectURL(downloadUrl)
+
+    setStatus("✅ Úspěšně staženo!")
+
+  } catch (err) {
+    console.error(err)
+
+    setStatus(
+      `❌ ${err.message || "Výpadek spojení."}`
+    )
   }
+}
 
   return (
     <div className="glass-panel" style={{ maxWidth: "600px", margin: "0 auto" }}>

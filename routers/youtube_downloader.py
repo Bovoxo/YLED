@@ -1,22 +1,25 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import yt_dlp
 import os
+import glob
+import uuid
 from urllib.parse import quote
 
 router = APIRouter()
 
 
-# Šablona pro to, co pošleme z webu
 class DownloadRequest(BaseModel):
     url: str
-    mode: str  # "video" nebo "audio"
-    kvalita: str = "1080"  # Očekává "nejnizsi", "1080", "max"
+    mode: str                  # "video" nebo "audio"
+    kvalita: str = "1080"      # "nejnizsi", "1080", "max"
+
+
+TEMP_DIR = "temp_downloads"
 
 
 def smazat_soubor_po_odeslani(cesta: str):
-    """Tato funkce se spustí potichu na pozadí a smaže soubor, aby neucpal server."""
     try:
         if os.path.exists(cesta):
             os.remove(cesta)
@@ -25,73 +28,180 @@ def smazat_soubor_po_odeslani(cesta: str):
 
 
 @router.post("/stahnout-yt")
-def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
-    # Vytvoříme si složku pro dočasné uložení (pokud ještě neexistuje)
-    temp_dir = "temp_downloads"
-    os.makedirs(temp_dir, exist_ok=True)
+def download_youtube(
+    req: DownloadRequest,
+    background_tasks: BackgroundTasks
+):
+    os.makedirs(TEMP_DIR, exist_ok=True)
+
+    # Základní kontrola vstupu
+    if req.mode not in ("video", "audio"):
+        raise HTTPException(
+            status_code=400,
+            detail="Neplatný režim stahování."
+        )
+
+    if req.kvalita not in ("nejnizsi", "1080", "max"):
+        raise HTTPException(
+            status_code=400,
+            detail="Neplatná kvalita."
+        )
+
+    # Unikátní ID zabrání kolizím, pokud dva lidé stahují
+    # video se stejným názvem.
+    download_id = uuid.uuid4().hex
+
+    output_template = os.path.join(
+        TEMP_DIR,
+        f"{download_id}_%(title).200s.%(ext)s"
+    )
+
+    ydl_opts = {
+        "outtmpl": output_template,
+
+        # Jen jedno video
+        "noplaylist": True,
+
+        # Bez zbytečných hlášek
+        "quiet": True,
+        "no_warnings": False,
+
+        # Bezpečnější názvy souborů
+        "restrictfilenames": True,
+
+        # FFmpeg
+        "ffmpeg_location": "/usr/bin/ffmpeg",
+
+        # Pokud YouTube vrátí problém, chceme skutečnou chybu
+        "ignoreerrors": False,
+    }
+
+    if req.mode == "audio":
+
+        ydl_opts.update({
+            "format": "bestaudio/best",
+
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "320",
+                }
+            ],
+        })
+
+    else:
+        # -----------------------------------------
+        # VIDEO
+        # -----------------------------------------
+
+        if req.kvalita == "nejnizsi":
+            # Maximálně 360p
+            format_str = (
+                "bestvideo[height<=360]+bestaudio/"
+                "best[height<=360]/"
+                "best"
+            )
+
+        elif req.kvalita == "1080":
+            # Nejlepší video do 1080p + nejlepší audio
+            format_str = (
+                "bestvideo[height<=1080]+bestaudio/"
+                "best[height<=1080]/"
+                "best"
+            )
+
+        else:
+            # MAX:
+            # nejlepší dostupné video + nejlepší audio.
+            #
+            # Preferujeme MP4/H264, pokud existuje.
+            # Pokud ne, dovolíme VP9/AV1.
+            format_str = (
+                "bestvideo+bestaudio/"
+                "best"
+            )
+
+        ydl_opts.update({
+            "format": format_str,
+
+            # Výstupní kontejner.
+            #
+            # MKV je pro MAX nejbezpečnější, protože může obsahovat
+            # H264, VP9 i AV1 bez nutnosti překódování.
+            "merge_output_format": "mkv",
+        })
 
     try:
-        # Základní nastavení (vychází z tvého původního kódu)
-        ydl_opts = {
-            'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-            'ffmpeg_location': '/usr/bin/ffmpeg',
-            'restrictfilenames': False,
-            'windowsfilenames': True,
-            'noplaylist': True,  # Stáhne jen jedno video, ne celý playlist
-        }
-
-        if req.mode == "audio":
-            ydl_opts.update({
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '320',
-                }],
-            })
-        else:  # režim videa
-            # ZDE JE PŘIDANÁ LOGIKA PRO 3 TLAČÍTKA Z FRONTENDU
-            if req.kvalita == "max":
-                format_str = 'bestvideo+bestaudio/best'
-            elif req.kvalita == "nejnizsi":
-                format_str = 'bestvideo[height<=360]+bestaudio/best'
-            else:
-                format_str = 'bestvideo[height<=1080]+bestaudio/best'
-
-            ydl_opts.update({
-                'format': format_str,
-                'merge_output_format': 'mp4',
-                'postprocessor_args': {
-                    'merger': ['-c:v', 'copy', '-c:a', 'aac'],
-                },
-            })
-
-        # Samotné stahování
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(req.url, download=True)
-            # yt-dlp změní koncovku (na mp4/mp3) až po stažení, takhle najdeme finální název
-            cesta_k_souboru = ydl.prepare_filename(info_dict)
+            info = ydl.extract_info(req.url, download=True)
 
-            if req.mode == "audio":
-                cesta_k_souboru = cesta_k_souboru.rsplit('.', 1)[0] + '.mp3'
-            elif req.mode == "video":
-                cesta_k_souboru = cesta_k_souboru.rsplit('.', 1)[0] + '.mp4'
+            if not info:
+                raise Exception("Nepodařilo se získat informace o videu.")
 
-        if not os.path.exists(cesta_k_souboru):
-            return {"chyba": "Konverze se nezdařila. Máš ve složce ffmpeg.exe?"}
+            # Najdeme skutečně vytvořený soubor.
+            #
+            # prepare_filename() může vrátit původní příponu,
+            # takže místo hádání finálního názvu projdeme temp složku.
+            pattern = os.path.join(
+                TEMP_DIR,
+                f"{download_id}_*"
+            )
 
-        # Nařídíme serveru, aby soubor smazal ihned poté, co ho uživateli odešle
-        background_tasks.add_task(smazat_soubor_po_odeslani, cesta_k_souboru)
+            nalezene_soubory = glob.glob(pattern)
+
+            if not nalezene_soubory:
+                raise Exception(
+                    "Stahování proběhlo, ale výsledný soubor nebyl nalezen."
+                )
+
+            # Vezmeme nejnovější soubor
+            cesta_k_souboru = max(
+                nalezene_soubory,
+                key=os.path.getmtime
+            )
+
+        if not os.path.isfile(cesta_k_souboru):
+            raise Exception(
+                "Výsledný soubor neexistuje."
+            )
 
         nazev_souboru = os.path.basename(cesta_k_souboru)
+
+        # Odstraníme UUID z názvu, aby ho uživatel neviděl
+        prefix = f"{download_id}_"
+        if nazev_souboru.startswith(prefix):
+            nazev_souboru = nazev_souboru[len(prefix):]
+
         bezpecny_nazev = quote(nazev_souboru)
 
-        # Odeslání souboru prohlížeči
+        # Soubor smažeme po odeslání
+        background_tasks.add_task(
+            smazat_soubor_po_odeslani,
+            cesta_k_souboru
+        )
+
         return FileResponse(
             path=cesta_k_souboru,
             media_type="application/octet-stream",
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{bezpecny_nazev}"}
+            headers={
+                "Content-Disposition":
+                    f"attachment; filename*=UTF-8''{bezpecny_nazev}"
+            }
+        )
+
+    except yt_dlp.utils.DownloadError as e:
+        print(f"yt-dlp chyba: {e}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"YouTube/yt-dlp chyba: {str(e)}"
         )
 
     except Exception as e:
-        return {"chyba": str(e)}
+        print(f"Chyba při stahování: {e}")
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
