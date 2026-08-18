@@ -7,12 +7,10 @@ from urllib.parse import quote
 
 router = APIRouter()
 
-
 class DownloadRequest(BaseModel):
     url: str
     mode: str
     kvalita: str = "1080"  # Očekává "nejnizsi", "1080", "max"
-
 
 def smazat_soubor_po_odeslani(cesta: str):
     try:
@@ -21,39 +19,28 @@ def smazat_soubor_po_odeslani(cesta: str):
     except Exception as e:
         print(f"Chyba při mazání souboru: {e}")
 
-
 @router.post("/stahnout-yt")
 def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
     temp_dir = "temp_downloads"
     os.makedirs(temp_dir, exist_ok=True)
 
     try:
-        # 1. NEJBEZPEČNĚJŠÍ CESTA K FFMPEG
-        # Tento kód zjistí, kde je tento soubor (ve složce routers), skočí o patro výš
-        # do hlavní složky a tam ukáže přesně na ffmpeg.exe
+        # Absolutní cesta k FFmpeg v hlavní složce
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         ffmpeg_cesta = os.path.join(BASE_DIR, "ffmpeg.exe")
 
-        # Okamžitá kontrola - pokud ffmpeg.exe chybí nebo je cesta špatná, vyhodíme chybu na web!
         if not os.path.exists(ffmpeg_cesta):
             return {"chyba": f"Kritická chyba: FFmpeg nebyl nalezen na cestě: {ffmpeg_cesta}. Zkontroluj složku."}
 
-        # 2. Základní nastavení
+        # Základní nastavení ZCELA BEZ MASKOVÁNÍ
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
             'ffmpeg_location': ffmpeg_cesta,
             'restrictfilenames': False,
             'windowsfilenames': True,
             'noplaylist': True,
-            'extractor_args': {
-                'youtube': {
-                    # Kombinace pro nejlepší kvalitu a obcházení limitů bez spouštění DRM blokací
-                    'player_client': ['tv', 'web']
-                }
-            },
-            'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            }
+            # Odstraněny parametry extractor_args a http_headers.
+            # Necháváme yt-dlp použít vlastní integrované mechanismy.
         }
 
         if req.mode == "audio":
@@ -66,8 +53,6 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                 }],
             })
         else:
-            # 3. TVRDÉ VYNUCENÍ KVALITY
-            # Zde definujeme striktní formáty bez kompromisů a povolíme fúzi v mp4
             if req.kvalita == "max":
                 format_str = 'bestvideo+bestaudio/best'
             elif req.kvalita == "nejnizsi":
@@ -108,7 +93,9 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
 
     except Exception as e:
         chybova_zprava = str(e)
-        if "DRM protected" in chybova_zprava:
-            return {
-                "chyba": "Toto video má od YouTube uzamčenou (DRM) kvalitu. Zkus přepnout na 360p, nebo stáhnout jen Audio."}
+        # Rozšířený záchyt specifických chyb
+        if "The page needs to be reloaded" in chybova_zprava or "Sign in to confirm" in chybova_zprava:
+            return {"chyba": "YouTube zablokoval požadavek (Ochrana proti botům). Je nutné aktualizovat yt-dlp na serveru."}
+        elif "DRM protected" in chybova_zprava:
+            return {"chyba": "Toto video má od YouTube uzamčenou (DRM) kvalitu. Zkus přepnout na 360p, nebo stáhnout jen Audio."}
         return {"chyba": chybova_zprava}
