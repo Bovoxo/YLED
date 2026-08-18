@@ -175,7 +175,7 @@ function ModulPrezentace() {
 function ModulYoutube() {
   const [url, setUrl] = useState("")
   const [rezim, setRezim] = useState("video")
-  const [kvalita, setKvalita] = useState("1080")
+  const [kvalita, setKvalita] = useState("1080") // "nejnizsi", "1080", "max"
   const [status, setStatus] = useState("Připraveno")
 
   const stahnout = async () => {
@@ -186,24 +186,21 @@ function ModulYoutube() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: url, mode: rezim, kvalita: kvalita })
       })
-      
+
       const contentType = response.headers.get("content-type")
       if (contentType && contentType.includes("application/json")) {
         const data = await response.json()
         if (data.chyba) return setStatus(`❌ ${data.chyba}`)
       }
 
-      // Vytáhneme název souboru z hlavičky 'Content-Disposition'
-      let nazevSouboru = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}` // Záložní název
+      let nazevSouboru = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}`
       const disposition = response.headers.get('Content-Disposition')
-      
+
       if (disposition) {
-        // Hledáme UTF-8 zakódovaný název (kvůli české diakritice)
         const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/)
         if (utf8Match && utf8Match[1]) {
           nazevSouboru = decodeURIComponent(utf8Match[1])
         } else {
-          // Obyčejné hledání, pokud není název v UTF-8
           const normalMatch = disposition.match(/filename="?([^";]+)"?/)
           if (normalMatch && normalMatch[1]) {
             nazevSouboru = normalMatch[1]
@@ -215,12 +212,12 @@ function ModulYoutube() {
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
-      a.download = nazevSouboru // <--- TADY POUŽIJEME SPRÁVNÝ NÁZEV OD SERVERU
+      a.download = nazevSouboru
       a.click()
       window.URL.revokeObjectURL(downloadUrl)
       setStatus("✅ Úspěšně staženo!")
-    } catch (err) { 
-      setStatus("❌ Výpadek spojení.") 
+    } catch (err) {
+      setStatus("❌ Výpadek spojení.")
     }
   }
 
@@ -239,11 +236,22 @@ function ModulYoutube() {
       </div>
 
       {rezim === "video" && (
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <select value={kvalita} onChange={(e) => setKvalita(e.target.value)} style={{ width: "100%" }}>
-            <option value="1080">Kvalita: Limit 1080p (Rychlejší)</option>
-            <option value="max">Kvalita: MAX 4K/8K (Pomalejší stahování)</option>
-          </select>
+        <div style={{ display: "flex", gap: "10px", marginBottom: "20px", justifyContent: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setKvalita("nejnizsi")}
+            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "nejnizsi" ? "#ef4444" : "#1e293b", color: kvalita === "nejnizsi" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
+            360p<br/>(Nejrychlejší)
+          </button>
+          <button
+            onClick={() => setKvalita("1080")}
+            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "1080" ? "#ef4444" : "#1e293b", color: kvalita === "1080" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
+            1080p<br/>(Zlatý střed)
+          </button>
+          <button
+            onClick={() => setKvalita("max")}
+            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "max" ? "#ef4444" : "#1e293b", color: kvalita === "max" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
+            MAX<br/>(Nejvyšší)
+          </button>
         </div>
       )}
 

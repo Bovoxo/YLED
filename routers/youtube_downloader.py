@@ -8,11 +8,10 @@ from urllib.parse import quote
 router = APIRouter()
 
 
-# Šablona pro to, co pošleme z webu
 class DownloadRequest(BaseModel):
     url: str
-    mode: str  # "video" nebo "audio"
-    kvalita: str = "1080"  # "1080" nebo "max" (jen pro video)
+    mode: str
+    kvalita: str = "1080"  # Bude přijímat "nejnizsi", "1080", nebo "max"
 
 
 def smazat_soubor_po_odeslani(cesta: str):
@@ -26,27 +25,27 @@ def smazat_soubor_po_odeslani(cesta: str):
 
 @router.post("/stahnout-yt")
 def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
-    # Vytvoříme si složku pro dočasné uložení (pokud ještě neexistuje)
     temp_dir = "temp_downloads"
     os.makedirs(temp_dir, exist_ok=True)
 
     try:
-        # Základní nastavení s ochranou proti 403 Forbidden
+        # Vynutíme absolutní cestu k FFmpeg, aby ho yt-dlp stoprocentně našel
+        ffmpeg_cesta = os.path.abspath("ffmpeg.exe")
+
+        # Základní nastavení
         ydl_opts = {
             'outtmpl': f'{temp_dir}/%(title)s.%(ext)s',
-            'ffmpeg_location': '/usr/bin/ffmpeg',  # Pokud jsi na Windows, možná tu budeš muset mít např. 'ffmpeg.exe'
+            'ffmpeg_location': ffmpeg_cesta,
             'restrictfilenames': False,
             'windowsfilenames': True,
             'noplaylist': True,
-            # Tímto říkáme yt-dlp, aby se tvářil jako Android, což často obchází blokace
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web']
+                    'player_client': ['ios', 'web']
                 }
             },
-            # Přidání běžné hlavičky prohlížeče
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
             }
         }
 
@@ -59,11 +58,14 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
                     'preferredquality': '320',
                 }],
             })
-        else:  # režim videa
+        else:
+            # LOGIKA PRO 3 TLAČÍTKA KVALITY
             if req.kvalita == "max":
                 format_str = 'bestvideo+bestaudio/best'
+            elif req.kvalita == "nejnizsi":
+                format_str = 'bestvideo[height<=360]+bestaudio/best'
             else:
-                format_str = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best'
+                format_str = 'bestvideo[height<=1080]+bestaudio/best'
 
             ydl_opts.update({
                 'format': format_str,
@@ -76,7 +78,6 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         # Samotné stahování
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(req.url, download=True)
-            # yt-dlp změní koncovku (na mp4/mp3) až po stažení, takhle najdeme finální název
             cesta_k_souboru = ydl.prepare_filename(info_dict)
 
             if req.mode == "audio":
@@ -87,14 +88,12 @@ def download_youtube(req: DownloadRequest, background_tasks: BackgroundTasks):
         if not os.path.exists(cesta_k_souboru):
             return {"chyba": "Konverze se nezdařila. Máš ve složce ffmpeg.exe?"}
 
-        # Nařídíme serveru, aby soubor smazal ihned poté, co ho uživateli odešle
+        # Smazání souboru po odeslání
         background_tasks.add_task(smazat_soubor_po_odeslani, cesta_k_souboru)
 
         nazev_souboru = os.path.basename(cesta_k_souboru)
         bezpecny_nazev = quote(nazev_souboru)
 
-        
-        # Odeslání souboru prohlížeči
         return FileResponse(
             path=cesta_k_souboru,
             media_type="application/octet-stream",
