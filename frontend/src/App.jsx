@@ -175,139 +175,139 @@ function ModulPrezentace() {
 function ModulYoutube() {
   const [url, setUrl] = useState("")
   const [rezim, setRezim] = useState("video")
-  const [kvalita, setKvalita] = useState("1080") // "nejnizsi", "1080", "max"
+  const [kvalita, setKvalita] = useState("1080")
   const [status, setStatus] = useState("Připraveno")
 
+  // NOVÉ: Stavy pro Loading bar
+  const [progres, setProgres] = useState(0)
+  const [stahujeSe, setStahujeSe] = useState(false)
+
   const stahnout = async () => {
-  if (!url.trim()) {
-    return setStatus("❌ Chybí odkaz!")
-  }
+    if (!url.trim()) return setStatus("❌ Chybí odkaz!")
 
-  setStatus("⏳ Zpracovávám (může to chvíli trvat)...")
+    setStahujeSe(true)
+    setProgres(0)
+    setStatus("🚀 Zahajuji stahování...")
 
-  try {
-    const response = await fetch("/api/stahnout-yt", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        url: url.trim(),
-        mode: rezim,
-        kvalita: kvalita
+    try {
+      // 1. Získáme ID úkolu ze serveru
+      const responseStart = await fetch("/api/stahnout-yt-start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim(), mode: rezim, kvalita: kvalita })
       })
-    })
 
-    // Nejdřív kontrolujeme HTTP status
-    if (!response.ok) {
-      let chyba = `Server vrátil chybu ${response.status}`
+      if (!responseStart.ok) throw new Error("Server neodpovídá.")
+      const dataStart = await responseStart.json()
+      const taskId = dataStart.task_id
 
-      try {
-        const data = await response.json()
+      // 2. Zahájíme dotazování na stav každou sekundu
+      const interval = setInterval(async () => {
+        try {
+          const resStav = await fetch(`/api/stahnout-yt-stav/${taskId}`)
+          const dataStav = await resStav.json()
 
-        if (data.detail) {
-          chyba = data.detail
-        } else if (data.chyba) {
-          chyba = data.chyba
+          if (dataStav.status === "stahuje_se") {
+            setProgres(dataStav.procenta)
+            setStatus(`⏳ Stahování: ${dataStav.procenta.toFixed(1)} %`)
+          }
+          else if (dataStav.status === "konverze") {
+            setProgres(100)
+            setStatus("⚙️ Spojuji obraz a zvuk (tohle chvíli trvá)...")
+          }
+          else if (dataStav.status === "hotovo") {
+            clearInterval(interval) // Ukončíme dotazování
+            setStatus("✅ Připravuji soubor ke stažení do prohlížeče...")
+            stahnoutFinálníSoubor(`/api/stahnout-yt-soubor/${taskId}`)
+          }
+          else if (dataStav.status === "chyba") {
+            clearInterval(interval)
+            setStahujeSe(false)
+            setStatus(`❌ Chyba: ${dataStav.chyba}`)
+          }
+        } catch (err) {
+          clearInterval(interval)
+          setStahujeSe(false)
+          setStatus("❌ Spojení se serverem bylo přerušeno.")
         }
-      } catch {
-        // Server neposlal JSON
-      }
+      }, 1000)
 
-      throw new Error(chyba)
+    } catch (err) {
+      setStahujeSe(false)
+      setStatus(`❌ ${err.message}`)
     }
-
-    // Získáme název souboru
-    let nazevSouboru =
-      `stazeno_z_youtube${rezim === "video" ? ".mkv" : ".mp3"}`
-
-    const disposition =
-      response.headers.get("Content-Disposition")
-
-    if (disposition) {
-      const utf8Match =
-        disposition.match(/filename\*=UTF-8''([^;]+)/)
-
-      if (utf8Match && utf8Match[1]) {
-        nazevSouboru =
-          decodeURIComponent(utf8Match[1])
-      } else {
-        const normalMatch =
-          disposition.match(/filename="?([^";]+)"?/)
-
-        if (normalMatch && normalMatch[1]) {
-          nazevSouboru = normalMatch[1]
-        }
-      }
-    }
-
-    setStatus("⏳ Připravuji soubor...")
-
-    const blob = await response.blob()
-
-    const downloadUrl =
-      window.URL.createObjectURL(blob)
-
-    const a = document.createElement("a")
-
-    a.href = downloadUrl
-    a.download = nazevSouboru
-
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-
-    window.URL.revokeObjectURL(downloadUrl)
-
-    setStatus("✅ Úspěšně staženo!")
-
-  } catch (err) {
-    console.error(err)
-
-    setStatus(
-      `❌ ${err.message || "Výpadek spojení."}`
-    )
   }
-}
+
+  // Funkce, která převezme tvojí původní stahovací logiku
+  const stahnoutFinálníSoubor = async (urlStazeni) => {
+    try {
+      const res = await fetch(urlStazeni)
+      if (!res.ok) throw new Error("Soubor se nepodařilo stáhnout do PC.")
+
+      let nazevSouboru = `stazeno_z_youtube${rezim === "video" ? ".mp4" : ".mp3"}`
+      const disposition = res.headers.get("Content-Disposition")
+      if (disposition) {
+        const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/)
+        if (utf8Match && utf8Match[1]) nazevSouboru = decodeURIComponent(utf8Match[1])
+      }
+
+      const blob = await res.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = downloadUrl
+      a.download = nazevSouboru
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(downloadUrl)
+
+      setStatus("✅ Úspěšně staženo!")
+      setStahujeSe(false)
+    } catch(e) {
+      setStatus(`❌ Chyba při ukládání: ${e.message}`)
+      setStahujeSe(false)
+    }
+  }
 
   return (
     <div className="glass-panel" style={{ maxWidth: "600px", margin: "0 auto" }}>
       <h2 style={{ color: "#ef4444", textAlign: "center", marginBottom: "20px" }}>📹 YouTube Downloader</h2>
-      <input type="text" placeholder="https://www.youtube.com/watch?v=..." value={url} onChange={(e) => setUrl(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: "20px" }} />
+      <input type="text" placeholder="https://www.youtube.com/watch?v=..." value={url} onChange={(e) => setUrl(e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginBottom: "20px" }} disabled={stahujeSe} />
 
       <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "20px" }}>
         <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: rezim === "video" ? "#fff" : "#64748b" }}>
-          <input type="radio" value="video" checked={rezim === "video"} onChange={(e) => setRezim(e.target.value)} /> 🎬 Video (MP4)
+          <input type="radio" value="video" checked={rezim === "video"} onChange={(e) => setRezim(e.target.value)} disabled={stahujeSe} /> 🎬 Video (MP4)
         </label>
         <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", color: rezim === "audio" ? "#fff" : "#64748b" }}>
-          <input type="radio" value="audio" checked={rezim === "audio"} onChange={(e) => setRezim(e.target.value)} /> 🎵 Audio (MP3)
+          <input type="radio" value="audio" checked={rezim === "audio"} onChange={(e) => setRezim(e.target.value)} disabled={stahujeSe}/> 🎵 Audio (MP3)
         </label>
       </div>
 
       {rezim === "video" && (
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px", justifyContent: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={() => setKvalita("nejnizsi")}
-            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "nejnizsi" ? "#ef4444" : "#1e293b", color: kvalita === "nejnizsi" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
-            360p<br/>(Nejrychlejší)
-          </button>
-          <button
-            onClick={() => setKvalita("1080")}
-            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "1080" ? "#ef4444" : "#1e293b", color: kvalita === "1080" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
-            1080p<br/>(Zlatý střed)
-          </button>
-          <button
-            onClick={() => setKvalita("max")}
-            style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "max" ? "#ef4444" : "#1e293b", color: kvalita === "max" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: "pointer" }}>
-            MAX<br/>(Nejvyšší)
-          </button>
+          <button onClick={() => setKvalita("nejnizsi")} disabled={stahujeSe} style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "nejnizsi" ? "#ef4444" : "#1e293b", color: kvalita === "nejnizsi" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: stahujeSe ? "not-allowed" : "pointer" }}>360p<br/>(Nejrychlejší)</button>
+          <button onClick={() => setKvalita("1080")} disabled={stahujeSe} style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "1080" ? "#ef4444" : "#1e293b", color: kvalita === "1080" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: stahujeSe ? "not-allowed" : "pointer" }}>1080p<br/>(Zlatý střed)</button>
+          <button onClick={() => setKvalita("max")} disabled={stahujeSe} style={{ flex: 1, minWidth: "120px", padding: "10px", backgroundColor: kvalita === "max" ? "#ef4444" : "#1e293b", color: kvalita === "max" ? "white" : "#94a3b8", fontSize: "14px", fontWeight: "bold", border: "1px solid #334155", borderRadius: "8px", cursor: stahujeSe ? "not-allowed" : "pointer" }}>MAX<br/>(Nejvyšší)</button>
         </div>
       )}
 
-      <button onClick={stahnout} style={{ width: "100%", padding: "15px", backgroundColor: "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: "pointer" }}>
-        STÁHNOUT SOUBOR
+      <button onClick={stahnout} disabled={stahujeSe} style={{ width: "100%", padding: "15px", backgroundColor: stahujeSe ? "#334155" : "#ef4444", color: "white", fontSize: "16px", fontWeight: "bold", border: "none", borderRadius: "10px", cursor: stahujeSe ? "not-allowed" : "pointer" }}>
+        {stahujeSe ? "ZPRACOVÁVÁM..." : "STÁHNOUT SOUBOR"}
       </button>
-      <p style={{ textAlign: "center", color: status.includes("❌") ? "#ef4444" : "#94a3b8", marginTop: "15px" }}>{status}</p>
+
+      {/* VIZUÁLNÍ LOADING BAR */}
+      {stahujeSe && (
+        <div style={{ marginTop: "20px", width: "100%", backgroundColor: "#1e293b", borderRadius: "8px", overflow: "hidden", height: "12px", border: "1px solid #334155" }}>
+          <div style={{
+            width: `${progres}%`,
+            height: "100%",
+            backgroundColor: progres === 100 ? "#eab308" : "#ef4444",
+            transition: "width 0.3s ease-in-out"
+          }}></div>
+        </div>
+      )}
+
+      <p style={{ textAlign: "center", color: status.includes("❌") ? "#ef4444" : "#94a3b8", marginTop: "15px", fontWeight: "bold" }}>{status}</p>
     </div>
   )
 }
